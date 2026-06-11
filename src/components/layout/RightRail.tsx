@@ -2,19 +2,10 @@
 import { useEffect, useState } from "react";
 import { fetchProfileData, editProfileData } from "../../app/actions";
 import { Profile } from "../../lib/strategy";
+import { formatIndianCurrencyShort } from "../../utils/format";
 
-export function formatIndianCurrencyShort(amount: number) {
-  if (amount >= 10000000) {
-    return `₹${(amount / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
-  }
-  if (amount >= 100000) {
-    return `₹${(amount / 100000).toFixed(2).replace(/\.00$/, '')} L`;
-  }
-  if (amount >= 1000) {
-    return `₹${(amount / 1000).toFixed(0)}k`;
-  }
-  return `₹${amount}`;
-}
+// Re-export for any components that import from this file
+export { formatIndianCurrencyShort };
 
 function AllocationBar({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
   return (
@@ -206,7 +197,7 @@ export default function RightRail({ profile }: { profile: any }) {
           warn={data.emergency_fund_months === undefined || data.emergency_fund_months === null || data.emergency_fund_months < 6} />
         <GapRow icon="shield"
           label="Term cover"
-          value={data.term_cover ? `₹${data.term_cover}Cr` : (data.has_term_insurance === false ? "None" : "Not set")}
+          value={data.term_cover ? formatIndianCurrencyShort(data.term_cover) : (data.has_term_insurance === false ? "None" : "Not set")}
           warn={!data.has_term_insurance} />
         <GapRow icon="heart"
           label="Health cover"

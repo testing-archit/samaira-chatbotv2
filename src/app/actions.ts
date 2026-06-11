@@ -57,4 +57,5 @@ export async function editProfileData(profileId: string, formData: FormData) {
     risk_appetite: risk_appetite ? (risk_appetite as "low" | "medium" | "high") : undefined,
     goals: goals,
   })
+  revalidatePath('/')
 }

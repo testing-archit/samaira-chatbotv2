@@ -202,19 +202,7 @@ export async function POST(req: Request) {
 
     const latestMessage = messages[messages.length - 1];
 
-    // Ensure session exists in the DB
-    await sql`
-      INSERT INTO sessions (id, user_id) 
-      VALUES (${session_id}, ${user_id}) 
-      ON CONFLICT (id) DO NOTHING
-    `;
-
-    // Insert the user's message into DB
-    const userMessageId = latestMessage.id || ('msg_' + Math.random().toString(36).substring(2, 9));
-    await sql`
-      INSERT INTO messages (id, session_id, role, content)
-      VALUES (${userMessageId}, ${session_id}, 'user', ${latestMessage.content})
-    `;
+    // 🔒 Apply input guardrails BEFORE writing to DB
     if (latestMessage?.role === 'user') {
       try {
         latestMessage.content = guardrails.filterInput(latestMessage.content);
@@ -222,6 +210,21 @@ export async function POST(req: Request) {
         return new Response(err.message, { status: 400 });
       }
     }
+
+    // Ensure session exists in the DB
+    await sql`
+      INSERT INTO sessions (id, user_id) 
+      VALUES (${session_id}, ${user_id}) 
+      ON CONFLICT (id) DO NOTHING
+    `;
+
+    // Insert the user's message into DB (ON CONFLICT guards against retry double-inserts)
+    const userMessageId = latestMessage.id || ('msg_' + Math.random().toString(36).substring(2, 9));
+    await sql`
+      INSERT INTO messages (id, session_id, role, content)
+      VALUES (${userMessageId}, ${session_id}, 'user', ${latestMessage.content})
+      ON CONFLICT (id) DO NOTHING
+    `;
 
     const toolsImpl = getTools(session_id, profile_id);
 

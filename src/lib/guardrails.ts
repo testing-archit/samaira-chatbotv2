@@ -63,12 +63,7 @@ export const guardrails = {
           'I can only provide educational, category-level strategies. For specific scheme or stock recommendations, please connect with a SEBI-registered investment advisor.';
         return sanitized;
       }
-
-      const disclaimer =
-        '\n\n*Disclaimer: I am Samaira, an AI assistant providing educational information only. This is not financial advice. Please speak to an Octaraa expert for personalized guidance.*';
-      if (!sanitized.includes('Disclaimer: I am Samaira')) {
-        sanitized += disclaimer;
-      }
+      // Note: disclaimer is handled by the UI layer, not appended here
     }
 
     return sanitized;

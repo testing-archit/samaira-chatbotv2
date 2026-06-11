@@ -1,11 +1,10 @@
 "use client";
-import { useState } from "react";
 import { deleteProfile } from "../../app/actions";
 import { logout } from "../../app/login/actions";
 import { Trash, LogOut } from "lucide-react";
 
 const NAV = [
-  { icon: "message-circle", label: "Ask Samaira", href: "#", active: true },
+  { icon: "message-circle", label: "Ask Samaira", href: "#" },
 ];
 
 export default function Sidebar({ 
@@ -23,7 +22,6 @@ export default function Sidebar({
   user: any,
   onAddMember: () => void
 }) {
-  const [active, setActive] = useState("Ask Samaira");
 
   return (
     <aside style={{
@@ -58,32 +56,28 @@ export default function Sidebar({
 
       {/* Nav */}
       <nav style={{ padding: "10px 10px 0" }} aria-label="Main navigation">
-        {NAV.map((item) => {
-          const isActive = active === item.label;
-          return (
-            <a key={item.label} href={item.href}
-              onClick={(e) => { e.preventDefault(); setActive(item.label); }}
-              aria-current={isActive ? "page" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 10px",
-                borderRadius: "var(--radius-md)",
-                fontSize: 13.5,
-                fontWeight: isActive ? 500 : 400,
-                color: isActive ? "#fff" : "rgba(255,255,255,0.55)",
-                background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
-                textDecoration: "none",
-                marginBottom: 2,
-                transition: "background var(--transition), color var(--transition)",
-              }}
-            >
-              <i className={`ti ti-${item.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
-              {item.label}
-            </a>
-          );
-        })}
+        {NAV.map((item) => (
+          <a key={item.label} href={item.href}
+            onClick={(e) => e.preventDefault()}
+            aria-current="page"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 10px",
+              borderRadius: "var(--radius-md)",
+              fontSize: 13.5,
+              fontWeight: 500,
+              color: "#fff",
+              background: "rgba(255,255,255,0.1)",
+              textDecoration: "none",
+              marginBottom: 2,
+            }}
+          >
+            <i className={`ti ti-${item.icon}`} style={{ fontSize: 17 }} aria-hidden="true" />
+            {item.label}
+          </a>
+        ))}
       </nav>
 
       {/* Family tree — the signature visual element */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { formatIndianCurrencyShort } from "../layout/RightRail";
+import { formatIndianCurrencyShort } from "../../utils/format";
 
 interface CalculatorProps {
   initialType: 'sip' | 'lumpsum' | 'emi';

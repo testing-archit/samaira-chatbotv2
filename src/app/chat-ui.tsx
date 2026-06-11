@@ -17,6 +17,14 @@ function ChatInstanceWrapper({ profile, user, isActive, onMenuOpen }: { profile:
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Must be defined BEFORE the useEffect that calls it
+  const getProfileSessionId = () => {
+    if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
+    const userId = user?.id || 'unknown';
+    const sessionId = profile.id;
+    return { userId, sessionId };
+  };
+
   useEffect(() => {
     if (!isActive) return;
     const { sessionId } = getProfileSessionId();
@@ -24,25 +32,17 @@ function ChatInstanceWrapper({ profile, user, isActive, onMenuOpen }: { profile:
       .then(res => res.json())
       .then(data => {
         if (data.messages && data.messages.length > 0) {
-          setMessages(prev => {
-            const aiMsg = prev.find(m => m.id.startsWith('msg_') && m.role === 'assistant' && !m.content);
-            if (isLoading && aiMsg && !data.messages.some((m: any) => m.id === aiMsg.id)) {
-              return [...data.messages, aiMsg];
-            }
-            return data.messages;
-          });
+          // Map tool_calls from DB into toolInvocations so badges survive reload
+          const mapped = data.messages.map((m: any) => ({
+            ...m,
+            toolInvocations: Array.isArray(m.tool_calls) ? m.tool_calls : [],
+          }));
+          setMessages(mapped);
         }
       })
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, profile.id]);
-
-  const getProfileSessionId = () => {
-    if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
-    const userId = user?.id || 'unknown';
-    const sessionId = profile.id;
-    return { userId, sessionId };
-  };
 
   const append = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -289,8 +289,8 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <label style={{ fontSize: 13, fontWeight: 500 }}>Relationship</label>
                 <select 
-                  name={selectedRelation !== 'custom' ? "relation" : "relation_type"} 
-                  required 
+                  name="relation"
+                  required={selectedRelation !== 'custom'}
                   value={selectedRelation} 
                   onChange={(e) => setSelectedRelation(e.target.value)}
                   style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }}
