@@ -53,12 +53,34 @@ function GapRow({ icon, label, value, warn }: { icon: string; label: string; val
 }
 
 function ProfileEditModal({ profile, initialData, onClose, onSave }: { profile: any, initialData: Profile | null, onClose: () => void, onSave: () => void }) {
+  const [goals, setGoals] = useState<{name: string, target_amount: number, horizon_years: number}[]>(initialData?.goals || []);
+
+  const handleAddGoal = () => {
+    setGoals([...goals, { name: "", target_amount: 0, horizon_years: 0 }]);
+  };
+
+  const handleRemoveGoal = (index: number) => {
+    setGoals(goals.filter((_, i) => i !== index));
+  };
+
+  const updateGoal = (index: number, field: string, value: any) => {
+    const newGoals = [...goals];
+    newGoals[index] = { ...newGoals[index], [field]: value };
+    setGoals(newGoals);
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose} />
-      <div style={{ position: "relative", background: "var(--bg-card)", padding: 24, borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "var(--shadow-float)", maxHeight: "90vh", overflowY: "auto" }}>
+      <div style={{ position: "relative", background: "var(--bg-card)", padding: 24, borderRadius: 16, width: "100%", maxWidth: 500, boxShadow: "var(--shadow-float)", maxHeight: "90vh", overflowY: "auto" }}>
         <h3 style={{ marginBottom: 16, fontSize: 18 }}>Edit {profile.name}'s Profile</h3>
-        <form action={async (fd) => { await editProfileData(profile.id, fd); onSave(); onClose(); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <form action={async (fd) => { 
+          // Inject goals into formData as a JSON string
+          fd.append('goals', JSON.stringify(goals.filter(g => g.name.trim() !== "")));
+          await editProfileData(profile.id, fd); 
+          onSave(); 
+          onClose(); 
+        }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <label style={{ fontSize: 13, fontWeight: 500 }}>Emergency Fund (Months)</label>
             <input type="number" name="emergency_fund_months" defaultValue={initialData?.emergency_fund_months || ''} placeholder="e.g. 6" style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }} />
@@ -84,6 +106,26 @@ function ProfileEditModal({ profile, initialData, onClose, onSave }: { profile: 
               <option value="high">High (Aggressive)</option>
             </select>
           </div>
+          
+          <hr style={{ border: "none", borderTop: "1px solid var(--border-mid)", margin: "8px 0" }} />
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              Financial Goals
+              <button type="button" onClick={handleAddGoal} style={{ fontSize: 11, padding: "4px 8px", background: "var(--brand-mint2)", color: "var(--brand-leaf)", border: "none", borderRadius: 4, cursor: "pointer" }}>+ Add Goal</button>
+            </label>
+            
+            {goals.map((goal, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", background: "var(--bg-hover)", padding: 8, borderRadius: 8 }}>
+                <input type="text" placeholder="Goal Name" value={goal.name} onChange={(e) => updateGoal(i, 'name', e.target.value)} style={{ flex: 1, padding: "6px", border: "1px solid var(--border-mid)", borderRadius: 4, fontSize: 12 }} required />
+                <input type="number" placeholder="₹ Target" value={goal.target_amount || ''} onChange={(e) => updateGoal(i, 'target_amount', parseInt(e.target.value))} style={{ width: 80, padding: "6px", border: "1px solid var(--border-mid)", borderRadius: 4, fontSize: 12 }} required />
+                <input type="number" placeholder="Years" value={goal.horizon_years || ''} onChange={(e) => updateGoal(i, 'horizon_years', parseInt(e.target.value))} style={{ width: 60, padding: "6px", border: "1px solid var(--border-mid)", borderRadius: 4, fontSize: 12 }} required />
+                <button type="button" onClick={() => handleRemoveGoal(i)} style={{ background: "transparent", border: "none", color: "var(--warn-text)", cursor: "pointer", fontSize: 14 }}>&times;</button>
+              </div>
+            ))}
+            {goals.length === 0 && <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>No goals added.</span>}
+          </div>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
             <button type="button" onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-mid)", background: "transparent", cursor: "pointer" }}>Cancel</button>
             <button type="submit" style={{ padding: "8px 16px", borderRadius: 8, background: "var(--brand-leaf)", color: "#fff", border: "none", cursor: "pointer" }}>Save Profile</button>
