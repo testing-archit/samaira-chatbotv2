@@ -432,7 +432,7 @@ body {
   display: block;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 /* Custom scrollbar for tables to hint they are scrollable */
