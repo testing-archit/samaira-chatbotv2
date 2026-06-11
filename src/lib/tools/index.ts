@@ -174,6 +174,19 @@ export function getTools(sessionId: string, profileId: string) {
         if (!args || Object.keys(args).length === 0) {
           return "No new profile data provided. You must provide at least one field to update.";
         }
+
+        if (args.goals) {
+          const profile = await getUserProfile(profileId);
+          if (profile && profile.goals) {
+            const existingGoals = profile.goals;
+            const newGoals = args.goals;
+            const goalMap = new Map();
+            existingGoals.forEach((g: any) => goalMap.set(g.name.toLowerCase(), g));
+            newGoals.forEach((g: any) => goalMap.set(g.name.toLowerCase(), g));
+            args.goals = Array.from(goalMap.values());
+          }
+        }
+
         await updateUserProfile(profileId, args);
         return "Profile updated successfully.";
       },
