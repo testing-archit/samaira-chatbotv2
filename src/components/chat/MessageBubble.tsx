@@ -69,31 +69,34 @@ export function MessageBubble({ message }: { message: Message }) {
       gap: 4,
       animation: "fadeIn 150ms ease",
     }}>
-      {!isUser && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            width: 26,
-            height: 26,
-            borderRadius: "50%",
-            background: "var(--brand-leaf)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            fontWeight: 600,
-            color: "#fff",
-            flexShrink: 0,
-          }} aria-hidden="true">S</span>
-        </div>
-      )}
-
       <div style={{
-        maxWidth: isUser ? "72%" : "84%",
-        marginLeft: isUser ? "auto" : 34,
+        width: "100%",
         display: "flex",
-        flexDirection: "column",
-        gap: 6
+        flexDirection: isUser ? "row-reverse" : "row",
+        gap: 16
       }}>
+        {/* Avatar */}
+        <div style={{ flexShrink: 0 }}>
+          {isUser ? (
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--bg-hover)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <i className="ti ti-user" style={{ fontSize: 14, color: "var(--text-secondary)" }} aria-hidden="true" />
+            </div>
+          ) : (
+            <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--brand-leaf)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, color: "#fff" }}>
+              S
+            </div>
+          )}
+        </div>
+
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: isUser ? "flex-end" : "flex-start",
+          gap: 6,
+          paddingTop: 4
+        }}>
         {/* Tool Invocations */}
         {message.toolInvocations && message.toolInvocations.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -148,13 +151,14 @@ export function MessageBubble({ message }: { message: Message }) {
         {/* Message Content */}
         {message.content && (
           <div style={{
-            padding: "10px 14px",
-            borderRadius: isUser ? "16px 16px 4px 16px" : "4px 16px 16px 16px",
-            background: isUser ? "var(--brand-leaf)" : "var(--brand-mint)",
-            color: isUser ? "#fff" : "var(--text-primary)",
-            fontSize: 14,
+            padding: isUser ? "12px 16px" : "0",
+            borderRadius: isUser ? "20px 20px 4px 20px" : "0",
+            background: isUser ? "var(--bg-hover)" : "transparent",
+            color: "var(--text-primary)",
+            fontSize: 15,
             lineHeight: 1.6,
-            border: isUser ? "none" : "1px solid rgba(15,110,86,0.12)",
+            maxWidth: "100%",
+            border: isUser ? "1px solid var(--border)" : "none",
           }}>
             {isUser ? (
               message.content
@@ -165,6 +169,7 @@ export function MessageBubble({ message }: { message: Message }) {
             )}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

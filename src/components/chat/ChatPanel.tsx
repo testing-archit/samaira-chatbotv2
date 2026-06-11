@@ -27,59 +27,46 @@ export default function ChatPanel({
       flex: 1,
       display: "flex",
       flexDirection: "column",
-      background: "var(--bg-card)",
-      border: "1px solid var(--border)",
-      borderRadius: "var(--radius-lg)",
+      background: "var(--bg-page)", // changed to blend with page
       overflow: "hidden",
       minWidth: 0,
-      boxShadow: "var(--shadow-card)",
+      position: "relative",
     }}>
       {/* Chat header */}
       <header style={{
         display: "flex",
         alignItems: "center",
-        gap: 10,
-        padding: "12px 16px",
+        justifyContent: "space-between",
+        padding: "16px 24px",
         borderBottom: "1px solid var(--border)",
+        background: "var(--bg-card)",
         flexShrink: 0,
+        zIndex: 10,
       }}>
-        {onMenuOpen && (
-          <button onClick={onMenuOpen} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }} aria-label="Open menu">
-            <i className="ti ti-menu-2" style={{ fontSize: 18, color: "var(--text-secondary)" }} aria-hidden="true" />
-          </button>
-        )}
-        <span style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: "var(--brand-leaf)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          fontWeight: 600,
-          color: "#fff",
-          flexShrink: 0,
-        }} aria-hidden="true">S</span>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>Samaira for {profile?.name}</p>
-          <p style={{ fontSize: 11.5, color: "var(--text-secondary)", lineHeight: 1.2 }}>Octaraa wealth assistant</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {onMenuOpen && (
+            <button onClick={onMenuOpen} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }} aria-label="Open menu">
+              <i className="ti ti-menu-2" style={{ fontSize: 18, color: "var(--text-secondary)" }} aria-hidden="true" />
+            </button>
+          )}
+          <span style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            background: "var(--brand-leaf)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#fff",
+            flexShrink: 0,
+          }} aria-hidden="true">S</span>
+          <div>
+            <p style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>Samaira</p>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.2 }}>Planning for {profile?.name}</p>
+          </div>
         </div>
-        <span style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 5,
-          fontSize: 11,
-          fontWeight: 500,
-          background: "var(--bg-hover)",
-          color: "var(--text-secondary)",
-          padding: "3px 10px",
-          borderRadius: "var(--radius-full)",
-          border: "1px solid var(--border)",
-        }}>
-          <i className="ti ti-sparkles" style={{ fontSize: 12 }} aria-hidden="true" />
-          AI assistant
-        </span>
       </header>
 
       {/* Message list */}
@@ -90,41 +77,55 @@ export default function ChatPanel({
         style={{
           flex: 1,
           overflowY: "auto",
-          padding: "18px 16px",
+          padding: "24px 16px 120px", // extra padding at bottom for floating composer
           display: "flex",
           flexDirection: "column",
-          gap: 16,
+          gap: 32, // More breathing room between messages
+          alignItems: "center", // center children
         }}
       >
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <div key={msg.id} style={{ width: "100%", maxWidth: 800 }}>
+            <MessageBubble message={msg} />
+          </div>
         ))}
         {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <span style={{
-              width: 26, height: 26, borderRadius: "50%",
-              background: "var(--brand-leaf)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11, fontWeight: 600, color: "#fff", flexShrink: 0,
-            }} aria-hidden="true">S</span>
-            <div style={{
-              background: "var(--brand-mint)",
-              border: "1px solid rgba(15,110,86,0.12)",
-              borderRadius: "4px 16px 16px 16px",
-              padding: "6px 4px",
-            }}>
-              <span style={{ padding: "0 8px", color: "var(--brand-deep)", fontSize: "12px" }}>...</span>
+          <div style={{ width: "100%", maxWidth: 800 }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <span style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "var(--brand-leaf)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 13, fontWeight: 600, color: "#fff", flexShrink: 0,
+              }} aria-hidden="true">S</span>
+              <div style={{ paddingTop: 8 }}>
+                <span style={{ color: "var(--text-secondary)", fontSize: "20px" }}>...</span>
+              </div>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
-      <Composer
-        onSend={onSend}
-        isStreaming={isStreaming}
-      />
+      {/* Floating Composer container */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        justifyContent: "center",
+        padding: "0 16px 24px",
+        background: "linear-gradient(to top, var(--bg-page) 60%, transparent)",
+        pointerEvents: "none", // let clicks pass through the gradient
+      }}>
+        <div style={{ width: "100%", maxWidth: 800, pointerEvents: "auto" }}>
+          <Composer
+            onSend={onSend}
+            isStreaming={isStreaming}
+          />
+        </div>
+      </div>
     </main>
   );
 }

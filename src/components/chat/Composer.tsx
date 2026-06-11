@@ -61,14 +61,15 @@ export default function Composer({ onSend, isStreaming, quickReplies }: Composer
         display: "flex",
         alignItems: "flex-end",
         gap: 8,
-        background: "var(--bg-input)",
-        border: "1px solid var(--border-mid)",
-        borderRadius: "var(--radius-xl)",
-        padding: "6px 6px 6px 16px",
-        transition: "border-color var(--transition)",
+        background: "var(--bg-card)",
+        border: "1px solid var(--border)",
+        borderRadius: "24px",
+        padding: "8px 8px 8px 16px",
+        boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)",
+        transition: "border-color var(--transition), box-shadow var(--transition)",
       }}
-        onFocus={(e) => (e.currentTarget.style.borderColor = "var(--brand-leaf)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border-mid)")}
+        onFocus={(e) => { e.currentTarget.style.borderColor = "var(--brand-leaf)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(15,110,86,0.1)"; }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0, 0, 0, 0.05)"; }}
       >
         <textarea
           ref={textareaRef}
@@ -99,18 +100,19 @@ export default function Composer({ onSend, isStreaming, quickReplies }: Composer
           disabled={!value.trim() || isStreaming}
           aria-label={isStreaming ? "Samaira is responding" : "Send message"}
           style={{
-            width: 34,
-            height: 34,
+            width: 36,
+            height: 36,
             borderRadius: "50%",
             background: value.trim() && !isStreaming ? "var(--brand-leaf)" : "var(--bg-hover)",
-            color: value.trim() && !isStreaming ? "#fff" : "var(--text-tertiary)",
+            color: value.trim() && !isStreaming ? "#fff" : "var(--text-secondary)",
             border: "none",
             cursor: value.trim() && !isStreaming ? "pointer" : "default",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            transition: "background var(--transition), color var(--transition)",
+            transition: "all 0.2s ease",
+            opacity: value.trim() && !isStreaming ? 1 : 0.6
           }}
         >
           {isStreaming

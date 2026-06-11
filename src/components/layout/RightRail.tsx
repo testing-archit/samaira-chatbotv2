@@ -182,15 +182,12 @@ export default function RightRail({ profile }: { profile: any }) {
       flexDirection: "column",
       gap: 10,
       overflowY: "auto",
-      padding: "14px 0 20px",
+      padding: "14px 16px 20px 0",
     }}>
       {/* Family snapshot */}
       <section aria-labelledby="snapshot-heading" style={{
-        background: "var(--bg-card)",
-        border: "1px solid var(--border)",
-        borderRadius: "var(--radius-lg)",
+        background: "transparent",
         padding: "14px",
-        boxShadow: "var(--shadow-card)",
       }}>
         <h2 id="snapshot-heading" style={{
           fontSize: 13,
