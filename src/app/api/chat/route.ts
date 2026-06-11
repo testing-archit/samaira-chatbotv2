@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
+import { getSessionUser } from '@/lib/auth';
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const CHAT_MODEL = 'gpt-oss-120b:free';
@@ -188,6 +189,12 @@ async function callOpenRouter(messages: any[], stream: boolean) {
 
 export async function POST(req: Request) {
   try {
+    // 🔒 Authenticate the session before processing any data
+    const sessionUser = await getSessionUser();
+    if (!sessionUser) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+
     const body = await req.json();
     let messages: any[] = body.messages;
 
@@ -232,9 +239,23 @@ export async function POST(req: Request) {
     const contextualSystemPrompt = `${SYSTEM_PROMPT}\n\nCURRENT CONTEXT: You are advising the user about their family member: ${profile_name} (Relation: ${profile_relation}). All financial data you collect or update using tools will be saved to this specific profile. Address them appropriately.`;
 
     // Build OpenAI-format history with system prompt
+    // Reconstruct proper tool_calls history so multi-turn agentic context is preserved.
     const openaiMessages: any[] = [
       { role: 'system', content: contextualSystemPrompt },
-      ...messages.map((m: any) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      ...messages.map((m: any) => {
+        const base: any = { role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content || null };
+        // Re-attach tool calls from stored toolInvocations so the model doesn't lose context
+        if (m.role === 'assistant' && Array.isArray(m.toolInvocations) && m.toolInvocations.length > 0) {
+          base.tool_calls = m.toolInvocations.map((t: any) => ({
+            id: t.toolCallId,
+            type: 'function',
+            function: { name: t.toolName, arguments: JSON.stringify(t.args || {}) }
+          }));
+          // OpenAI requires content to be null when tool_calls are present
+          base.content = null;
+        }
+        return base;
+      }),
     ];
 
     const encoder = new TextEncoder();

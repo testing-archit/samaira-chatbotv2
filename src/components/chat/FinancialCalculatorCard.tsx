@@ -17,12 +17,14 @@ export function FinancialCalculatorCard({ initialType, initialPrincipal, initial
   const [result, setResult] = useState({ totalValue: 0, wealthGained: 0, investedAmount: 0 });
 
   useEffect(() => {
-    // Pure client-side math logic to instantly recalculate when sliders move
     const r = (rate / 100) / 12;
-    const n = years * 12;
+    const n = Math.max(years * 12, 1); // guard: never divide by 0 months
 
     if (initialType === 'sip') {
-      const futureValue = principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+      // Guard against rate=0 which causes division by zero in the SIP formula
+      const futureValue = r === 0
+        ? principal * n
+        : principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
       const invested = principal * n;
       setResult({
         totalValue: futureValue,
@@ -37,13 +39,15 @@ export function FinancialCalculatorCard({ initialType, initialPrincipal, initial
         wealthGained: futureValue - principal
       });
     } else {
-      // EMI
-      const emi = principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+      // EMI — guard against rate=0
+      const emi = r === 0
+        ? principal / n
+        : principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
       const totalPayment = emi * n;
       setResult({
-        totalValue: totalPayment, // total payment
-        investedAmount: principal, // principal
-        wealthGained: totalPayment - principal // total interest
+        totalValue: totalPayment,
+        investedAmount: principal,
+        wealthGained: totalPayment - principal // this is total interest (a cost)
       });
     }
   }, [principal, years, rate, initialType]);
@@ -132,9 +136,9 @@ export function FinancialCalculatorCard({ initialType, initialPrincipal, initial
             <span style={{ fontWeight: 500 }}>{formatIndianCurrencyShort(result.investedAmount)}</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-            <span style={{ color: "var(--text-secondary)" }}>{initialType === 'emi' ? 'Total Interest' : 'Wealth Gained'}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{initialType === 'emi' ? 'Total Interest (Cost)' : 'Est. Wealth Gained'}</span>
             <span style={{ fontWeight: 500, color: initialType === 'emi' ? "var(--warn-text)" : "var(--brand-mid)" }}>
-              {initialType === 'emi' ? '+' : '+'} {formatIndianCurrencyShort(result.wealthGained)}
+              {initialType !== 'emi' && '+'}{formatIndianCurrencyShort(result.wealthGained)}
             </span>
           </div>
           
@@ -145,7 +149,7 @@ export function FinancialCalculatorCard({ initialType, initialPrincipal, initial
             <span style={{ color: "var(--brand-leaf)" }}>{formatIndianCurrencyShort(result.totalValue)}</span>
           </div>
 
-          {initialType === 'emi' && (
+          {initialType === 'emi' && years > 0 && (
              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 600, marginTop: 4 }}>
                <span>Monthly EMI</span>
                <span style={{ color: "var(--warn-text)" }}>{formatIndianCurrencyShort(result.totalValue / (years * 12))}</span>

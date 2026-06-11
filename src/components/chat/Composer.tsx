@@ -37,7 +37,8 @@ export default function Composer({ onSend, isStreaming, quickReplies }: Composer
       {quickReplies && quickReplies.length > 0 && (
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 9 }}>
           {quickReplies.map((q) => (
-            <button key={q} onClick={() => { onSend(q); }}
+            <button key={q} onClick={() => { if (!isStreaming) onSend(q); }}
+              disabled={isStreaming}
               style={{
                 padding: "5px 12px",
                 border: "1px solid var(--border-mid)",
@@ -45,11 +46,12 @@ export default function Composer({ onSend, isStreaming, quickReplies }: Composer
                 background: "var(--bg-card)",
                 color: "var(--text-secondary)",
                 fontSize: 12.5,
-                cursor: "pointer",
+                cursor: isStreaming ? "default" : "pointer",
                 whiteSpace: "nowrap",
                 maxWidth: 200,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                opacity: isStreaming ? 0.5 : 1,
               }}
             >{q}</button>
           ))}

@@ -6,6 +6,7 @@ function hashContent(content: string) {
 }
 
 const retrievalCache = new Map<string, any[]>();
+const MAX_CACHE_SIZE = 500; // keep memory bounded on serverless instances
 
 export const cache = {
   async getEmbedding(text: string): Promise<number[] | null> {
@@ -42,9 +43,14 @@ export const cache = {
     return retrievalCache.get(`${kbType}:${query}`);
   },
   setRetrieval(query: string, kbType: string, results: any[]) {
-    if (retrievalCache.size > 1000) {
-      const firstKey = retrievalCache.keys().next().value;
-      if (firstKey) retrievalCache.delete(firstKey);
+    // Evict oldest 10% of entries when at capacity to avoid memory bloat
+    if (retrievalCache.size >= MAX_CACHE_SIZE) {
+      const evictCount = Math.max(1, Math.floor(MAX_CACHE_SIZE * 0.1));
+      const keys = retrievalCache.keys();
+      for (let i = 0; i < evictCount; i++) {
+        const key = keys.next().value;
+        if (key !== undefined) retrievalCache.delete(key);
+      }
     }
     retrievalCache.set(`${kbType}:${query}`, results);
   }

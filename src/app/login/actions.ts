@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sql } from '@/lib/db'
 import { hashPassword, verifyPassword, createSession, clearSession } from '@/lib/auth'
+import crypto from 'crypto'
 
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
@@ -15,13 +16,12 @@ export async function login(formData: FormData) {
 
   const results = await sql`SELECT id, password_hash FROM users WHERE email = ${email}`
   
-  if (results.length === 0) {
-    redirect('/login?error=Invalid email or password.')
-  }
-
-  const user = results[0]
+  // Always run verifyPassword to normalize response time and prevent email enumeration
+  const DUMMY_HASH = '$00$dummy_hash_to_normalize_timing_0000000000000000000000000000000000000000000000000';
+  const user = results[0] ?? { id: null, password_hash: DUMMY_HASH };
+  const isValid = results.length > 0 && verifyPassword(password, user.password_hash);
   
-  if (!verifyPassword(password, user.password_hash)) {
+  if (!isValid) {
     redirect('/login?error=Invalid email or password.')
   }
 
@@ -51,7 +51,7 @@ export async function signup(formData: FormData) {
   }
 
   const hash = hashPassword(password)
-  const newUserId = 'user_' + Math.random().toString(36).substring(2, 11)
+  const newUserId = 'user_' + crypto.randomBytes(8).toString('hex')
 
   const results = await sql`
     INSERT INTO users (id, email, password_hash)
