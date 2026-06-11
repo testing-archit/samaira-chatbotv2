@@ -107,25 +107,31 @@ export default function RightRail({ profile }: { profile: any }) {
 
         <GapRow icon="umbrella"
           label="Emergency fund"
-          value={`${data.emergency_fund_months || 0}/6 mo`}
-          warn={(data.emergency_fund_months || 0) < 6} />
+          value={data.emergency_fund_months !== undefined && data.emergency_fund_months !== null ? `${data.emergency_fund_months} mo` : "Not set"}
+          warn={data.emergency_fund_months === undefined || data.emergency_fund_months === null || data.emergency_fund_months < 6} />
         <GapRow icon="shield"
           label="Term cover"
-          value={data.term_cover ? `₹${data.term_cover}Cr` : `Needed`}
+          value={data.term_cover ? `₹${data.term_cover}Cr` : (data.has_term_insurance === false ? "None" : "Not set")}
           warn={!data.has_term_insurance} />
         <GapRow icon="heart"
           label="Health cover"
-          value={data.has_health_insurance ? "Active" : "Not set"}
+          value={data.has_health_insurance === true ? "Active" : (data.has_health_insurance === false ? "None" : "Not set")}
           warn={!data.has_health_insurance} />
 
-        {data.risk_appetite && (
-          <p style={{ fontSize: 11.5, color: "var(--text-secondary)", margin: "12px 0 6px", fontWeight: 500, textTransform: "capitalize" }}>
-            Risk Appetite · {data.risk_appetite}
+        {data.risk_appetite ? (
+          <>
+            <p style={{ fontSize: 11.5, color: "var(--text-secondary)", margin: "12px 0 6px", fontWeight: 500, textTransform: "capitalize" }}>
+              Risk Appetite · {data.risk_appetite}
+            </p>
+            <AllocationBar equity={data.risk_appetite === 'high' ? 70 : (data.risk_appetite === 'medium' ? 50 : 30)} debt={data.risk_appetite === 'high' ? 20 : (data.risk_appetite === 'medium' ? 40 : 60)} gold={10} />
+          </>
+        ) : (
+          <p style={{ fontSize: 11.5, color: "var(--warn-text)", margin: "12px 0 6px", fontWeight: 500 }}>
+            Risk profile not set yet
           </p>
         )}
-        <AllocationBar equity={data.risk_appetite === 'high' ? 70 : 50} debt={data.risk_appetite === 'high' ? 20 : 40} gold={10} />
 
-        {data.goals && data.goals.length > 0 && data.goals.map((g: any, i: number) => (
+        {data.goals && data.goals.length > 0 ? data.goals.map((g: any, i: number) => (
           <div key={i} style={{
             display: "flex",
             justifyContent: "space-between",
@@ -137,7 +143,11 @@ export default function RightRail({ profile }: { profile: any }) {
               ₹{((g.target_amount || 0) / 1000).toFixed(0)}k
             </span>
           </div>
-        ))}
+        )) : (
+          <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-tertiary)", textAlign: "center" }}>
+            No goals planned yet
+          </div>
+        )}
 
       </section>
     </aside>
