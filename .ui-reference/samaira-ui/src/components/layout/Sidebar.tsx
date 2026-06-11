@@ -1,28 +1,22 @@
 "use client";
 import { useState } from "react";
-import { deleteProfile } from "../../app/actions";
-import { logout } from "../../app/login/actions";
-import { Trash, LogOut } from "lucide-react";
 
 const NAV = [
+  { icon: "dashboard", label: "Dashboard",   href: "#" },
+  { icon: "sitemap",   label: "Family tree",  href: "#" },
+  { icon: "target",    label: "Goals",        href: "#" },
+  { icon: "school",    label: "Learn",        href: "#" },
   { icon: "message-circle", label: "Ask Samaira", href: "#", active: true },
 ];
 
-export default function Sidebar({ 
-  onMobileClose, 
-  profiles, 
-  activeProfileId, 
-  onProfileSwitch, 
-  user,
-  onAddMember
-}: { 
-  onMobileClose?: () => void,
-  profiles: any[],
-  activeProfileId: string,
-  onProfileSwitch: (p: any) => void,
-  user: any,
-  onAddMember: () => void
-}) {
+const FAMILY = [
+  { initials: "AA", name: "You (Aarav)",  self: true  },
+  { initials: "PR", name: "Priya",        self: false },
+  { initials: "M",  name: "Mom",          self: false },
+  { initials: "R",  name: "Riya · 10y",   self: false },
+];
+
+export default function Sidebar({ onMobileClose }: { onMobileClose?: () => void }) {
   const [active, setActive] = useState("Ask Samaira");
 
   return (
@@ -102,80 +96,58 @@ export default function Sidebar({
           {/* Vertical connector line — the signature element */}
           <svg
             aria-hidden="true"
-            style={{ position: "absolute", left: 10, top: 11, width: 16, height: Math.max(0, profiles.length * 36 - 18), pointerEvents: "none" }}
+            style={{ position: "absolute", left: 10, top: 11, width: 16, height: FAMILY.length * 36 - 18, pointerEvents: "none" }}
           >
-            <line x1="1" y1="0" x2="1" y2={Math.max(0, profiles.length * 36 - 18)}
+            <line x1="1" y1="0" x2="1" y2={FAMILY.length * 36 - 18}
               stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-            {profiles.map((_, i) => (
+            {FAMILY.map((_, i) => (
               <line key={i} x1="1" y1={i * 36 + 11} x2="10" y2={i * 36 + 11}
                 stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
             ))}
           </svg>
 
           <ul style={{ listStyle: "none", paddingLeft: 22 }}>
-            {profiles.map((m) => {
-              const isSelf = m.relation === 'self';
-              const isActive = m.id === activeProfileId;
-              return (
-              <li key={m.id} 
-                onClick={() => onProfileSwitch(m)}
-                style={{
+            {FAMILY.map((m) => (
+              <li key={m.name} style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 9,
+                marginBottom: 8,
+                cursor: "pointer",
+              }}>
+                <span style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: "50%",
+                  background: m.self ? "var(--brand-mid)" : "rgba(255,255,255,0.12)",
+                  border: m.self ? "none" : "1px solid rgba(255,255,255,0.2)",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 9,
-                  marginBottom: 8,
-                  cursor: "pointer",
-                  background: isActive ? "rgba(255,255,255,0.1)" : "transparent",
-                  padding: "4px 8px 4px 4px",
-                  borderRadius: "6px",
-                  marginLeft: "-4px"
-              }}>
-                <div style={{display: "flex", alignItems: "center", gap: 9, overflow: "hidden"}}>
-                  <span style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    background: isSelf ? "var(--brand-mid)" : "rgba(255,255,255,0.12)",
-                    border: isSelf ? "none" : "1px solid rgba(255,255,255,0.2)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 9,
-                    fontWeight: 600,
-                    color: "#fff",
-                    flexShrink: 0,
-                  }}>{m.name?.substring(0, 2).toUpperCase() || 'U'}</span>
-                  <span style={{
-                    fontSize: 12.5,
-                    color: isActive ? "#fff" : (isSelf ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)"),
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}>{m.name}</span>
-                </div>
-                {!isSelf && (
-                  <form action={deleteProfile} onClick={e => e.stopPropagation()}>
-                    <input type="hidden" name="profileId" value={m.id} />
-                    <button type="submit" style={{background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 2}}>
-                      <Trash size={12} />
-                    </button>
-                  </form>
-                )}
+                  justifyContent: "center",
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: "#fff",
+                  flexShrink: 0,
+                }}>{m.initials}</span>
+                <span style={{
+                  fontSize: 12.5,
+                  color: m.self ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.55)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}>{m.name}</span>
               </li>
-            )})}
-            <li style={{ paddingLeft: 2, marginTop: 12 }}>
-              <button 
-                onClick={onAddMember}
-                style={{
+            ))}
+            <li style={{ paddingLeft: 2 }}>
+              <button style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
                 background: "none",
                 border: "1px dashed rgba(255,255,255,0.2)",
                 borderRadius: "var(--radius-sm)",
-                padding: "6px 8px",
-                color: "rgba(255,255,255,0.5)",
+                padding: "4px 8px",
+                color: "rgba(255,255,255,0.35)",
                 fontSize: 12,
                 cursor: "pointer",
                 width: "100%",
@@ -208,16 +180,12 @@ export default function Sidebar({
           fontWeight: 600,
           color: "#fff",
           flexShrink: 0,
-        }}>{user?.email?.substring(0, 2).toUpperCase() || 'U'}</span>
+        }}>AA</span>
         <div style={{ flex: 1, overflow: "hidden" }}>
-          <p style={{ fontSize: 12.5, fontWeight: 500, color: "#fff", lineHeight: 1.3, textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{user?.email}</p>
-          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.3 }}>Logged in</p>
+          <p style={{ fontSize: 12.5, fontWeight: 500, color: "#fff", lineHeight: 1.3 }}>Aarav Agarwal</p>
+          <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.3 }}>Free plan</p>
         </div>
-        <form action={logout}>
-          <button type="submit" style={{background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', padding: 4}}>
-            <LogOut size={14} />
-          </button>
-        </form>
+        <i className="ti ti-settings" style={{ fontSize: 16, color: "rgba(255,255,255,0.3)", cursor: "pointer" }} aria-label="Settings" />
       </div>
     </aside>
   );

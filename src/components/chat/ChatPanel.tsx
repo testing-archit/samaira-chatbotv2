@@ -3,13 +3,6 @@ import { useRef, useEffect } from "react";
 import { MessageBubble } from "./MessageBubble";
 import Composer from "./Composer";
 
-const QUICK_REPLIES = [
-  "FD or mutual fund?",
-  "How safe is my data?",
-  "What is the Family Tree?",
-  "Help me plan for retirement",
-];
-
 export default function ChatPanel({ 
   messages, 
   isStreaming, 
@@ -131,7 +124,6 @@ export default function ChatPanel({
       <Composer
         onSend={onSend}
         isStreaming={isStreaming}
-        quickReplies={messages.length <= 1 ? QUICK_REPLIES : undefined}
       />
     </main>
   );
