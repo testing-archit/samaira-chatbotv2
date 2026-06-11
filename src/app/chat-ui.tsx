@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
@@ -316,7 +317,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
 
                 {m.content ? (
                   <div className="markdown-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                       {m.content}
                     </ReactMarkdown>
                   </div>

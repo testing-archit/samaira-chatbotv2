@@ -180,8 +180,9 @@ body {
 .message-wrapper {
   display: flex;
   flex-direction: column;
-  max-width: 85%;
+  max-width: min(85%, 680px);
   animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  min-width: 0;
 }
 
 .message-wrapper.user {
@@ -428,6 +429,10 @@ body {
   border-collapse: collapse;
   margin: 0.75rem 0;
   font-size: 0.88rem;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
 }
 .markdown-body th {
   background: var(--bg-tertiary);
