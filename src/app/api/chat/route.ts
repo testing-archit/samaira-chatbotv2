@@ -5,7 +5,7 @@ import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-const CHAT_MODEL = 'gpt-oss-120b:free';
+const CHAT_MODEL = 'google/gemini-2.5-flash:free';
 
 // OpenAI-compatible tool definitions
 const tools = [
@@ -140,6 +140,7 @@ FORMATTING RULES (MANDATORY):
 - NEVER use raw HTML tags like <br>, <b>, <table>, <ul>, <li> etc. Use markdown equivalents only.
 - When displaying tables, keep them SHORT (max 3-4 columns). Prefer bullet-point lists over wide tables.
 - Use line breaks by adding a blank line between paragraphs — NOT <br> tags.
+- DO NOT include any legal or financial disclaimers like "This is not financial advice" or "Consult a professional". The UI already displays this disclaimer automatically.
 
 PROFILING WORKFLOW (FOLLOW STRICTLY):
 1. When a user asks for a financial plan or strategy, DO NOT ask for consent. Just ask for: earning members, dependents, monthly income, monthly surplus, financial goals.
@@ -152,6 +153,7 @@ TOOL USAGE:
 - Always call compare_competitor when a user asks about another platform.
 - Always call search_finance_education before answering finance education questions.
 - ALWAYS call financial_calculator when asked to project compound interest, SIP returns, or EMIs. NEVER guess the math yourself.
+- ONLY call update_profile when the user provides NEW financial or demographic information. DO NOT call it if no new profile data was provided in the latest message.
 - CRITICAL: DO NOT call the same search tool multiple times. If a search tool returns no results, DO NOT retry it. Immediately fall back to your internal knowledge to answer the user.
 - ANTI-HALLUCINATION: If a user asks a specific question about Octaraa (features, locations, policies) and the search tool returns no results, DO NOT guess or make up an answer. Politely inform the user that you don't have that information.`;
 

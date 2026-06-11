@@ -434,6 +434,22 @@ body {
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
 }
+
+/* Custom scrollbar for tables to hint they are scrollable */
+.markdown-body table::-webkit-scrollbar {
+  height: 6px;
+}
+.markdown-body table::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+.markdown-body table::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+.markdown-body table::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
 .markdown-body th {
   background: var(--bg-tertiary);
   padding: 0.5rem 0.75rem;
