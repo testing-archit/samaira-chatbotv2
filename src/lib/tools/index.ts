@@ -150,7 +150,7 @@ export function getTools(sessionId: string, profileId: string) {
     },
 
     update_profile: {
-      description: 'Update the user profile with new slot values collected from the conversation.',
+      description: 'Update the user profile with new slot values. CRITICAL: You MUST call this tool IMMEDIATELY anytime the user mentions a new goal (e.g. home, car, emergency fund), even if you are also calling financial_calculator.',
       parameters: z.object({
         dependents_count: z.number().optional(),
         earning_members: z.number().optional(),
@@ -228,7 +228,7 @@ export function getTools(sessionId: string, profileId: string) {
     },
 
     financial_calculator: {
-      description: 'Calculate SIP future values, lumpsum compound interest, or EMI payments.',
+      description: 'Calculate SIP future values, lumpsum compound interest, or EMI payments. CRITICAL: If you are calculating for a user\'s goal (like a home or car), you MUST ALSO call update_profile in parallel to save that goal to their database.',
       parameters: z.object({
         type: z.enum(['sip', 'lumpsum', 'emi']).describe('Type of calculation'),
         principal: z.number().describe('Monthly SIP amount, lumpsum investment amount, or loan principal amount'),
