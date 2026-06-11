@@ -605,9 +605,9 @@ body {
 
 .btn-secondary {
   flex: 1;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
   padding: 12px;
   border-radius: 10px;
   font-weight: 600;
@@ -617,11 +617,13 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  gap: 6px;
 }
 
 .btn-secondary:hover {
-  background: var(--bg-secondary);
-  border-color: #d0d0d0;
+  background: rgba(56, 189, 248, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
   transform: translateY(-1px);
 }
 
