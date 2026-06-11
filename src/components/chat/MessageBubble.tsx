@@ -1,6 +1,7 @@
 "use client";
 import { Loader2, Check } from "lucide-react";
 import dynamic from 'next/dynamic';
+import { FinancialCalculatorCard } from "./FinancialCalculatorCard";
 
 const MarkdownRenderer = dynamic(() => import('../../app/markdown-renderer'), {
   ssr: false,
@@ -125,6 +126,22 @@ export function MessageBubble({ message }: { message: Message }) {
                 </span>
               </div>
             ))}
+            
+            {/* Render interactive cards for specific completed tools */}
+            {message.content && message.toolInvocations.map((tool, idx) => {
+              if (tool.toolName === 'financial_calculator' && tool.args) {
+                return (
+                  <FinancialCalculatorCard 
+                    key={`card-${idx}`}
+                    initialType={tool.args.type}
+                    initialPrincipal={tool.args.principal}
+                    initialRate={tool.args.rate}
+                    initialYears={tool.args.years}
+                  />
+                );
+              }
+              return null;
+            })}
           </div>
         )}
 
