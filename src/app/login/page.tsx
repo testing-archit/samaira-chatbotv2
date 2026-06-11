@@ -1,5 +1,6 @@
 import { login, signup } from './actions'
 import { Bot, AlertCircle } from 'lucide-react'
+import { SubmitButtons } from './submit-buttons'
 
 export default async function LoginPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
@@ -46,14 +47,7 @@ export default async function LoginPage(props: {
             />
           </div>
           
-          <div className="login-actions">
-            <button formAction={login} className="btn-primary">
-              Log in
-            </button>
-            <button formAction={signup} className="btn-secondary">
-              Sign up
-            </button>
-          </div>
+          <SubmitButtons />
         </form>
       </div>
     </div>
