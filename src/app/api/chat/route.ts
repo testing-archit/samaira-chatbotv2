@@ -156,7 +156,8 @@ TOOL USAGE:
 - ALWAYS call financial_calculator when asked to project compound interest, SIP returns, or EMIs. NEVER guess the math yourself.
 - ONLY call update_profile when the user provides NEW financial or demographic information. DO NOT call it if no new profile data was provided in the latest message.
 - CRITICAL: DO NOT call the same search tool multiple times. If a search tool returns no results, DO NOT retry it. Immediately fall back to your internal knowledge to answer the user.
-- ANTI-HALLUCINATION: If a user asks a specific question about Octaraa (features, locations, policies) and the search tool returns no results, DO NOT guess or make up an answer. Politely inform the user that you don't have that information.`;
+- ANTI-HALLUCINATION: If a user asks a specific question about Octaraa (features, locations, policies) and the search tool returns no results, DO NOT guess or make up an answer. Politely inform the user that you don't have that information.
+- STATUS BADGES: Whenever you mention a specific Octaraa feature that your knowledge base flags as \`coming_soon\` or "roadmap", you MUST immediately append the literal text \`[coming_soon]\` right after the feature name. Our UI will turn this tag into a beautiful badge. For example: "We will soon offer Smart Investing [coming_soon] for your portfolio."`;
 
 async function callOpenRouter(messages: any[], stream: boolean) {
   const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
