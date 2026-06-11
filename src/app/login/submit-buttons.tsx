@@ -10,10 +10,11 @@ export function SubmitButtons() {
   return (
     <div className="login-actions">
       <button formAction={login} className="btn-primary" disabled={pending}>
-        {pending ? <Loader2 size={16} className="animate-spin mr-2 inline" /> : null}
+        {pending ? <Loader2 size={16} className="spinning" style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} /> : null}
         {pending ? 'Logging in...' : 'Log in'}
       </button>
       <button formAction={signup} className="btn-secondary" disabled={pending}>
+        {pending ? <Loader2 size={16} className="spinning" style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} /> : null}
         {pending ? 'Signing up...' : 'Sign up'}
       </button>
     </div>

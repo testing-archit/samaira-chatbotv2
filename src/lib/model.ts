@@ -43,7 +43,7 @@ export const model = {
         body: JSON.stringify({
           model: OPENROUTER_EMBEDDING_MODEL,
           input: content,
-          dimensions: 1536,
+          dimensions: EMBEDDING_DIMENSIONS,
         }),
       });
 

@@ -38,6 +38,12 @@ export async function signup(formData: FormData) {
     redirect('/login?error=Password must be at least 6 characters.')
   }
 
+  // Basic email format validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    redirect('/login?error=Please enter a valid email address.')
+  }
+
   // Check if email exists
   const existing = await sql`SELECT id FROM users WHERE email = ${email}`
   if (existing.length > 0) {

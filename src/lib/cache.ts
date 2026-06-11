@@ -15,8 +15,8 @@ export const cache = {
       if (res.length > 0 && res[0].embedding) {
         let embeddingStr = res[0].embedding;
         if (typeof embeddingStr === 'string') {
-          // If vector is returned as a string '[1,2,3]'
-          embeddingStr = embeddingStr.replace('[', '').replace(']', '').split(',').map(Number);
+          // If vector is returned as a string '[1,2,3]' — strip brackets globally
+          embeddingStr = embeddingStr.replace(/[\[\]]/g, '').split(',').map(Number);
         }
         return embeddingStr as number[];
       }

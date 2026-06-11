@@ -266,7 +266,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                   className="suggestion-btn"
                   onClick={() =>
                     append({
-                      id: 'msg_' + i,
+                      id: 'msg_' + Math.random().toString(36).substring(2, 9),
                       role: 'user',
                       content: text,
                       toolInvocations: [],
