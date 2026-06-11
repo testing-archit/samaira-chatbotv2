@@ -21,7 +21,7 @@ export async function getUserProfile(profileId: string): Promise<Profile | null>
     risk_appetite: row.risk_appetite,
     tax_regime: row.tax_regime,
     age: row.age,
-    goals: row.goals,
+    goals: typeof row.goals === 'string' ? JSON.parse(row.goals) : row.goals,
   };
 }
 
@@ -53,7 +53,7 @@ export async function updateUserProfile(profileId: string, data: Partial<Profile
       ${data.risk_appetite ?? null}, 
       ${data.tax_regime ?? null}, 
       ${data.age ?? null}, 
-      ${data.goals ? JSON.stringify(data.goals) : null}, 
+      ${data.goals ? JSON.stringify(data.goals) : null}::jsonb, 
       CURRENT_TIMESTAMP
     )
     ON CONFLICT (profile_id) DO UPDATE SET
