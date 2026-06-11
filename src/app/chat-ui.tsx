@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
+import dynamic from 'next/dynamic';
 import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
+
+// Lazy load heavy markdown libraries
+const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
+  ssr: false, // Messages are fetched client-side anyway
+  loading: () => <span className="text-secondary">Rendering...</span>
+});
 
 interface Message {
   id: string;
@@ -317,9 +321,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
 
                 {m.content ? (
                   <div className="markdown-body">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                      {m.content}
-                    </ReactMarkdown>
+                    <MarkdownRenderer content={m.content} />
                   </div>
                 ) : (
                   isLoading && m.role === 'assistant' && (!m.toolInvocations || m.toolInvocations.length === 0) ? (
