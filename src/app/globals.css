@@ -180,7 +180,7 @@ body {
 .message-wrapper {
   display: flex;
   flex-direction: column;
-  max-width: min(85%, 680px);
+  max-width: min(92%, 920px);
   animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
   min-width: 0;
 }
