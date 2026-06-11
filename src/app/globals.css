@@ -467,24 +467,24 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin: 1rem 0;
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-mid);
   border-radius: 8px;
-  background: var(--bg-primary);
+  background: var(--bg-card);
 }
 
 .table-responsive::-webkit-scrollbar {
   height: 6px;
 }
 .table-responsive::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
+  background: var(--bg-hover);
   border-radius: 0 0 8px 8px;
 }
 .table-responsive::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: var(--border-mid);
   border-radius: 4px;
 }
 .table-responsive::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: var(--text-tertiary);
 }
 
 .markdown-body table {
@@ -498,7 +498,7 @@ body {
 .markdown-body th, 
 .markdown-body td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border-light);
+  border-bottom: 1px solid var(--border);
   text-align: left;
   line-height: 1.5;
 }
@@ -508,10 +508,10 @@ body {
 }
 
 .markdown-body th {
-  background: var(--bg-tertiary);
-  color: var(--accent);
+  background: var(--bg-hover);
+  color: var(--brand-leaf);
   font-weight: 600;
-  border-bottom: 2px solid var(--border-light);
+  border-bottom: 2px solid var(--border-mid);
 }
 .markdown-body hr {
   border: none;
