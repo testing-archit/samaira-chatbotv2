@@ -5,7 +5,7 @@ import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-const CHAT_MODEL = 'google/gemini-2.5-flash:free';
+const CHAT_MODEL = 'gpt-oss-120b:free';
 
 // OpenAI-compatible tool definitions
 const tools = [
