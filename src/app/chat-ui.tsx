@@ -173,9 +173,25 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRelation, setSelectedRelation] = useState('spouse');
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const profileName = params.get('profile');
+      if (profileName) {
+        const p = profiles.find(x => x.name.toLowerCase() === profileName.toLowerCase());
+        if (p) setActiveProfile(p);
+      }
+    }
+  }, [profiles]);
+
   const handleProfileSwitch = (p: any) => {
     setActiveProfile(p);
     setSidebarOpen(false);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('profile', p.name.toLowerCase());
+      window.history.pushState({}, '', url.toString());
+    }
   };
 
   return (

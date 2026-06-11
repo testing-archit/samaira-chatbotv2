@@ -3,6 +3,19 @@ import { useEffect, useState } from "react";
 import { fetchProfileData, editProfileData } from "../../app/actions";
 import { Profile } from "../../lib/strategy";
 
+export function formatIndianCurrencyShort(amount: number) {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2).replace(/\.00$/, '')} Cr`;
+  }
+  if (amount >= 100000) {
+    return `₹${(amount / 100000).toFixed(2).replace(/\.00$/, '')} L`;
+  }
+  if (amount >= 1000) {
+    return `₹${(amount / 1000).toFixed(0)}k`;
+  }
+  return `₹${amount}`;
+}
+
 function AllocationBar({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
   return (
     <div>
@@ -225,7 +238,7 @@ export default function RightRail({ profile }: { profile: any }) {
           }}>
             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{g.name}</span>
             <span style={{ fontSize: 17, fontWeight: 600 }}>
-              ₹{((g.target_amount || 0) / 1000).toFixed(0)}k
+              {formatIndianCurrencyShort(g.target_amount || 0)}
             </span>
           </div>
         )) : (
