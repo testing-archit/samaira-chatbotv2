@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { fetchProfileData } from "../../app/actions";
+import { fetchProfileData, editProfileData } from "../../app/actions";
 import { Profile } from "../../lib/strategy";
 
 function AllocationBar({ equity, debt, gold }: { equity: number; debt: number; gold: number }) {
@@ -52,8 +52,51 @@ function GapRow({ icon, label, value, warn }: { icon: string; label: string; val
   );
 }
 
+function ProfileEditModal({ profile, initialData, onClose, onSave }: { profile: any, initialData: Profile | null, onClose: () => void, onSave: () => void }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose} />
+      <div style={{ position: "relative", background: "var(--bg-card)", padding: 24, borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "var(--shadow-float)", maxHeight: "90vh", overflowY: "auto" }}>
+        <h3 style={{ marginBottom: 16, fontSize: 18 }}>Edit {profile.name}'s Profile</h3>
+        <form action={async (fd) => { await editProfileData(profile.id, fd); onSave(); onClose(); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Emergency Fund (Months)</label>
+            <input type="number" name="emergency_fund_months" defaultValue={initialData?.emergency_fund_months || ''} placeholder="e.g. 6" style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Term Insurance Cover (Cr)</label>
+            <input type="number" step="0.1" name="term_cover" defaultValue={initialData?.term_cover || ''} placeholder="e.g. 1.5" style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Health Insurance</label>
+            <select name="has_health_insurance" defaultValue={initialData?.has_health_insurance === true ? 'true' : (initialData?.has_health_insurance === false ? 'false' : '')} style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }}>
+              <option value="">Not set</option>
+              <option value="true">Yes, Active</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Risk Appetite</label>
+            <select name="risk_appetite" defaultValue={initialData?.risk_appetite || ''} style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }}>
+              <option value="">Not set</option>
+              <option value="low">Low (Conservative)</option>
+              <option value="medium">Medium (Moderate)</option>
+              <option value="high">High (Aggressive)</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
+            <button type="button" onClick={onClose} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-mid)", background: "transparent", cursor: "pointer" }}>Cancel</button>
+            <button type="submit" style={{ padding: "8px 16px", borderRadius: 8, background: "var(--brand-leaf)", color: "#fff", border: "none", cursor: "pointer" }}>Save Profile</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function RightRail({ profile }: { profile: any }) {
   const [data, setData] = useState<Profile | null>(null);
+  const [showEdit, setShowEdit] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -149,7 +192,24 @@ export default function RightRail({ profile }: { profile: any }) {
           </div>
         )}
 
+        <button onClick={() => setShowEdit(true)} style={{
+          marginTop: 20, width: "100%", padding: "8px", background: "transparent",
+          color: "var(--brand-leaf)", border: "1px solid var(--brand-leaf)", borderRadius: "var(--radius-md)",
+          fontSize: 12, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+        }}>
+          <i className="ti ti-edit" /> Manually Edit Profile
+        </button>
+
       </section>
+
+      {showEdit && (
+        <ProfileEditModal 
+          profile={profile} 
+          initialData={data} 
+          onClose={() => setShowEdit(false)} 
+          onSave={() => fetchProfileData(profile.id).then(res => { if(res) setData(res); })}
+        />
+      )}
     </aside>
   );
 }
