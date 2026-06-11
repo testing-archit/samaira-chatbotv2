@@ -1,89 +1,35 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import dynamic from 'next/dynamic';
-import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X } from 'lucide-react';
-import { addProfile, deleteProfile } from './actions';
-import { logout } from './login/actions';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import Sidebar from '../components/layout/Sidebar';
+import RightRail from '../components/layout/RightRail';
+import ChatPanel from '../components/chat/ChatPanel';
+import { addProfile } from './actions';
 
-// Lazy load heavy markdown libraries
-const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
-  ssr: false, // Messages are fetched client-side anyway
-  loading: () => <span className="text-secondary">Rendering...</span>
-});
-
-interface Message {
+export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  toolInvocations: Array<{ toolCallId: string; toolName: string; args: any }>;
+  toolInvocations?: Array<{ toolCallId: string; toolName: string; args: any }>;
 }
 
-const suggestions = [
-  "Plan for my family 👨‍👩‍👧",
-  "Why Octaraa over Groww?",
-  "SIP vs Lumpsum investing?",
-  "FD vs Mutual Fund?",
-  "How much term insurance do I need?",
-];
-
-const toolLabels: Record<string, string> = {
-  search_octaraa_knowledge: '🔍 Searching Octaraa knowledge base...',
-  search_finance_education: '📚 Searching finance education base...',
-  compare_competitor: '⚔️ Comparing platforms...',
-  request_profiling_consent: '🔐 Securing your consent...',
-  get_profile: '👤 Reading your profile...',
-  update_profile: '📝 Updating your profile...',
-  generate_strategy: '📊 Generating your financial strategy...',
-  financial_calculator: '🧮 Calculating the numbers...',
-};
-
-const toolLabelsDone: Record<string, string> = {
-  search_octaraa_knowledge: '✓ Searched Octaraa knowledge base',
-  search_finance_education: '✓ Searched finance education base',
-  compare_competitor: '✓ Analyzed competitor',
-  request_profiling_consent: '✓ Secured consent',
-  get_profile: '✓ Read your profile',
-  update_profile: '✓ Updated your profile',
-  generate_strategy: '✓ Generated personalized strategy',
-  financial_calculator: '✓ Calculated mathematically',
-};
-
-// ─── Chat Instance Component (one per profile) ───
-function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, user: any, isActive: boolean, onMenuClick: () => void }) {
+function ChatInstanceWrapper({ profile, user, isActive, onMenuOpen }: { profile: any, user: any, isActive: boolean, onMenuOpen: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isActive) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      inputRef.current?.focus();
-    }
-  }, [messages, isActive]);
-
-  useEffect(() => {
+    if (!isActive) return;
     const { sessionId } = getProfileSessionId();
     fetch(`/api/messages?session_id=${sessionId}`)
       .then(res => res.json())
       .then(data => {
         if (data.messages && data.messages.length > 0) {
-          // If we are currently fetching the stream for this profile, keep the dummy message
           setMessages(prev => {
             const aiMsg = prev.find(m => m.id.startsWith('msg_') && m.role === 'assistant' && !m.content);
             if (isLoading && aiMsg && !data.messages.some((m: any) => m.id === aiMsg.id)) {
               return [...data.messages, aiMsg];
             }
             return data.messages;
-          });
-        } else {
-          setMessages(prev => {
-            const aiMsg = prev.find(m => m.id.startsWith('msg_') && m.role === 'assistant' && !m.content);
-            if (isLoading && aiMsg) return [aiMsg];
-            return [];
           });
         }
       })
@@ -94,19 +40,22 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
   const getProfileSessionId = () => {
     if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
     const userId = user?.id || 'unknown';
-    const sessionId = profile.id; // Deterministic session ID
+    const sessionId = profile.id;
     return { userId, sessionId };
   };
 
-  const handleReset = async () => {
-    // Optionally delete messages from DB or just clear local state
-    setMessages([]);
-    setInput('');
-  };
-
-  const append = useCallback(async (message: Message) => {
+  const append = useCallback(async (text: string) => {
+    if (!text.trim() || isLoading) return;
     const { userId, sessionId } = getProfileSessionId();
-    const newMessages = [...messages, message];
+    
+    const userMessage: Message = {
+      id: 'msg_' + Math.random().toString(36).substring(2, 9),
+      role: 'user',
+      content: text,
+      toolInvocations: [],
+    };
+
+    const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
 
@@ -134,10 +83,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Error: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(await response.text() || `Error: ${response.statusText}`);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -205,175 +151,27 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
       });
     } finally {
       setIsLoading(false);
-      setTimeout(() => {
-        if (isActive) inputRef.current?.focus();
-      }, 100);
     }
-  }, [messages, profile, user, isActive]);
+  }, [messages, profile, user, isLoading]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    const userMessage: Message = {
-      id: 'msg_' + Math.random().toString(36).substring(2, 9),
-      role: 'user',
-      content: input.trim(),
-      toolInvocations: [],
-    };
-    setInput('');
-    append(userMessage);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e as any);
-    }
-  };
+  if (!isActive) return null;
 
   return (
-    <div className="chat-container" style={{ display: isActive ? 'flex' : 'none' }}>
-      <div className="header">
-        <div className="header-title-row">
-          <button className="mobile-menu-btn" onClick={onMenuClick}>
-            <Menu size={20} />
-          </button>
-          <div className="header-avatar">
-            {profile.name.charAt(0).toUpperCase()}
-          </div>
-          <div>
-            <h1>Samaira for {profile.name}</h1>
-            <p>Your Family Wealth Assistant by Octaraa</p>
-          </div>
-          <button
-            onClick={handleReset}
-            className="reset-btn"
-            title="Start a new conversation"
-            aria-label="Reset conversation"
-          >
-            <RefreshCw size={16} />
-          </button>
-        </div>
-      </div>
-
-      <div className="messages">
-        {messages.length === 0 ? (
-          <div className="welcome-screen">
-            <div className="welcome-icon">
-              <Bot size={48} />
-            </div>
-            <h2>Welcome to Octaraa</h2>
-            <p>How can I help {profile.name} secure their financial future today?</p>
-            <div className="suggestions">
-              {suggestions.map((text, i) => (
-                <button
-                  key={i}
-                  className="suggestion-btn"
-                  onClick={() =>
-                    append({
-                      id: 'msg_' + Math.random().toString(36).substring(2, 9),
-                      role: 'user',
-                      content: text,
-                      toolInvocations: [],
-                    })
-                  }
-                >
-                  {text}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={`message-wrapper ${m.role === 'user' ? 'user' : 'ai'}`}
-            >
-              <div className="message-label">
-                {m.role === 'user' ? (
-                  <User size={14} />
-                ) : (
-                  <Bot size={14} className="accent-icon" />
-                )}
-                <span>{m.role === 'user' ? 'You' : 'Samaira'}</span>
-              </div>
-              <div className={`message ${m.role === 'user' ? 'user' : 'ai'}`}>
-                {m.toolInvocations && m.toolInvocations.length > 0 && (
-                  <div className="tool-invocations-list">
-                    {m.toolInvocations
-                      .filter((tool) => tool.toolName !== 'update_profile' || Object.keys(tool.args || {}).length > 0)
-                      .map((tool, idx) => (
-                      <div key={idx} className={`tool-invocation ${m.content ? 'done' : ''}`}>
-                        {m.content ? (
-                          <Check size={13} strokeWidth={3} />
-                        ) : (
-                          <Loader2 size={13} className="spinning" />
-                        )}
-                        <span>
-                          {m.content 
-                            ? (toolLabelsDone[tool?.toolName] || `⚙️ Used ${tool?.toolName || 'tool'}`)
-                            : (toolLabels[tool?.toolName] || `⚙️ Running ${tool?.toolName || 'tool'}...`)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {m.content ? (
-                  <div className="markdown-body">
-                    <MarkdownRenderer content={m.content} />
-                  </div>
-                ) : (
-                  isLoading && m.role === 'assistant' && (!m.toolInvocations || m.toolInvocations.length === 0) ? (
-                    <div className="typing-dots">
-                      <span></span>
-                      <span></span>
-                      <span></span>
-                    </div>
-                  ) : !isLoading && m.role === 'assistant' && (
-                    <span className="text-secondary">...</span>
-                  )
-                )}
-              </div>
-            </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="input-area">
-        <form onSubmit={handleSubmit} className="input-form">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask about family wealth, FD vs MF, or plan your goals..."
-            disabled={isLoading}
-            autoComplete="off"
-          />
-          <button
-            type="submit"
-            disabled={isLoading || !input?.trim()}
-            aria-label="Send message"
-          >
-            {isLoading ? <Loader2 size={20} className="spinning" /> : <SendHorizontal size={20} />}
-          </button>
-        </form>
-        <p className="input-disclaimer">
-          Samaira provides educational insights only, not financial advice.
-        </p>
-      </div>
-    </div>
+    <ChatPanel 
+      messages={messages} 
+      isStreaming={isLoading} 
+      onSend={append} 
+      onMenuOpen={onMenuOpen}
+      profile={profile}
+    />
   );
 }
 
-// ─── Main Chat UI (Layout Container) ───
 export default function ChatUI({ user, profiles }: { user: any, profiles: any[] }) {
   const [activeProfile, setActiveProfile] = useState(profiles[0]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRelation, setSelectedRelation] = useState('spouse');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleProfileSwitch = (p: any) => {
     setActiveProfile(p);
@@ -381,120 +179,146 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
   };
 
   return (
-    <div className="layout-container">
-      
-      {/* Mobile Sidebar Overlay */}
-      <div 
-        className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} 
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">
-          <div className="sidebar-title">
-            <Users size={20} />
-            <h2>Family Tree</h2>
-          </div>
-        </div>
-        
-        <div className="sidebar-menu">
-          {profiles.map(p => (
-            <div 
-              key={p.id} 
-              onClick={() => handleProfileSwitch(p)}
-              className={`profile-item ${activeProfile?.id === p.id ? 'active' : ''}`}
-            >
-              <div>
-                <div className="profile-name">{p.name}</div>
-                <div className="profile-relation">{p.relation}</div>
-              </div>
-              {p.relation !== 'self' && (
-                <form action={deleteProfile}>
-                  <input type="hidden" name="profileId" value={p.id} />
-                  <button type="submit" className="delete-profile-btn">
-                    <Trash size={14} />
-                  </button>
-                </form>
-              )}
-            </div>
-          ))}
-
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="add-member-btn"
-          >
-            <Plus size={16} /> Add Member
-          </button>
-        </div>
-
-        <div className="sidebar-footer">
-          <p>Logged in as</p>
-          <span className="user-email">{user.email}</span>
-          <form action={logout} className="logout-form">
-            <button type="submit" className="logout-btn">
-              <LogOut size={12} /> Sign out
-            </button>
-          </form>
-        </div>
+    <div style={{
+      display: "flex",
+      height: "100dvh",
+      background: "var(--bg-page)",
+      overflow: "hidden",
+    }}>
+      {/* Desktop sidebar */}
+      <div style={{ display: "var(--sidebar-display, flex)" }} className="sidebar-desktop">
+        <Sidebar 
+          profiles={profiles} 
+          activeProfileId={activeProfile?.id} 
+          onProfileSwitch={handleProfileSwitch} 
+          user={user}
+          onAddMember={() => setShowAddModal(true)}
+        />
       </div>
 
-      {/* Main Chat Area */}
-      <div className="chat-main-area">
-        {/* Add Profile Modal */}
-        {showAddModal && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <h3>Add Family Member</h3>
-              <form action={async (fd) => { await addProfile(fd); setShowAddModal(false); }} className="modal-form">
-                <div className="input-group">
-                  <label>Name</label>
-                  <input name="name" required placeholder="e.g. Rahul" />
-                </div>
-                <div className="input-group">
-                  <label>Relationship</label>
-                  <select 
-                    name={selectedRelation !== 'custom' ? "relation" : "relation_type"} 
-                    required 
-                    value={selectedRelation} 
-                    onChange={(e) => setSelectedRelation(e.target.value)}
-                  >
-                    <option value="spouse">Spouse</option>
-                    <option value="child">Child</option>
-                    <option value="parent">Parent</option>
-                    <option value="brother">Brother</option>
-                    <option value="sister">Sister</option>
-                    <option value="grandparent">Grandparent</option>
-                    <option value="custom">Custom...</option>
-                  </select>
-                </div>
-                {selectedRelation === 'custom' && (
-                  <div className="input-group">
-                    <label>Custom Relationship</label>
-                    <input name="relation" required placeholder="e.g. Uncle, Nephew, Friend" autoFocus />
-                  </div>
-                )}
-                <div className="modal-actions">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
-                  <button type="submit" className="btn-primary">Add Profile</button>
-                </div>
-              </form>
-            </div>
+      {/* Mobile drawer overlay */}
+      {sidebarOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(11,61,46,0.4)",
+              backdropFilter: "blur(2px)",
+            }}
+          />
+          <div style={{ position: "relative", width: 240, zIndex: 51, height: "100%" }}>
+            <Sidebar 
+              onMobileClose={() => setSidebarOpen(false)} 
+              profiles={profiles} 
+              activeProfileId={activeProfile?.id} 
+              onProfileSwitch={handleProfileSwitch} 
+              user={user}
+              onAddMember={() => setShowAddModal(true)}
+            />
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Render a ChatInstance for EVERY profile, but only display the active one */}
-        {profiles.map((p) => (
-          <ChatInstance 
+      {/* Main content area */}
+      <div style={{
+        flex: 1,
+        display: "flex",
+        gap: 12,
+        padding: "12px",
+        overflow: "hidden",
+        minWidth: 0,
+      }}>
+        {profiles.map(p => (
+          <ChatInstanceWrapper 
             key={p.id} 
             profile={p} 
             user={user} 
             isActive={p.id === activeProfile?.id} 
-            onMenuClick={() => setSidebarOpen(true)}
+            onMenuOpen={() => setSidebarOpen(true)} 
           />
         ))}
 
+        {/* Right rail */}
+        <div className="rail-desktop" style={{ display: "var(--rail-display, flex)" }}>
+          <RightRail profile={activeProfile} />
+        </div>
       </div>
+
+      {/* Add Profile Modal */}
+      {showAddModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={() => setShowAddModal(false)} />
+          <div style={{
+            position: "relative", background: "var(--bg-card)", padding: 24, borderRadius: 16, width: "100%", maxWidth: 400, boxShadow: "var(--shadow-float)"
+          }}>
+            <h3 style={{ marginBottom: 16, fontSize: 18 }}>Add Family Member</h3>
+            <form action={async (fd) => { await addProfile(fd); setShowAddModal(false); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 500 }}>Name</label>
+                <input name="name" required placeholder="e.g. Rahul" style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <label style={{ fontSize: 13, fontWeight: 500 }}>Relationship</label>
+                <select 
+                  name={selectedRelation !== 'custom' ? "relation" : "relation_type"} 
+                  required 
+                  value={selectedRelation} 
+                  onChange={(e) => setSelectedRelation(e.target.value)}
+                  style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }}
+                >
+                  <option value="spouse">Spouse</option>
+                  <option value="child">Child</option>
+                  <option value="parent">Parent</option>
+                  <option value="brother">Brother</option>
+                  <option value="sister">Sister</option>
+                  <option value="grandparent">Grandparent</option>
+                  <option value="custom">Custom...</option>
+                </select>
+              </div>
+              {selectedRelation === 'custom' && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <label style={{ fontSize: 13, fontWeight: 500 }}>Custom Relationship</label>
+                  <input name="relation" required placeholder="e.g. Uncle, Nephew, Friend" autoFocus style={{ padding: "8px 12px", border: "1px solid var(--border-mid)", borderRadius: 8, background: "var(--bg-input)" }} />
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 8 }}>
+                <button type="button" onClick={() => setShowAddModal(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-mid)", background: "transparent", cursor: "pointer" }}>Cancel</button>
+                <button type="submit" style={{ padding: "8px 16px", borderRadius: 8, background: "var(--brand-leaf)", color: "#fff", border: "none", cursor: "pointer" }}>Add Profile</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Responsive CSS */}
+      <style>{`
+        .sidebar-desktop { display: flex !important; }
+        .rail-desktop     { display: flex !important; }
+        @media (max-width: 1023px) {
+          .sidebar-desktop { display: none !important; }
+        }
+        @media (max-width: 860px) {
+          .rail-desktop { display: none !important; }
+        }
+        .sr-only {
+          position: absolute; width: 1px; height: 1px;
+          padding: 0; margin: -1px; overflow: hidden;
+          clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+        }
+      `}</style>
     </div>
   );
 }

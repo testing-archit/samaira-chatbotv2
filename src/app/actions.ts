@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { getSessionUser } from '@/lib/auth'
-import { createFamilyProfile, deleteFamilyProfile } from '@/lib/profile'
+import { createFamilyProfile, deleteFamilyProfile, getUserProfile } from '@/lib/profile'
 
 export async function addProfile(formData: FormData) {
   const user = await getSessionUser()
@@ -27,4 +27,10 @@ export async function deleteProfile(formData: FormData) {
     await deleteFamilyProfile(profileId, user.id)
     revalidatePath('/')
   }
+}
+
+export async function fetchProfileData(profileId: string) {
+  const user = await getSessionUser()
+  if (!user) return null
+  return await getUserProfile(profileId)
 }
