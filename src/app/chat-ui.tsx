@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users } from 'lucide-react';
+import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
@@ -45,7 +45,7 @@ const toolLabelsDone: Record<string, string> = {
 };
 
 // ─── Chat Instance Component (one per profile) ───
-function ChatInstance({ profile, user, isActive }: { profile: any, user: any, isActive: boolean }) {
+function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, user: any, isActive: boolean, onMenuClick: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -211,8 +211,11 @@ function ChatInstance({ profile, user, isActive }: { profile: any, user: any, is
     <div className="chat-container" style={{ display: isActive ? 'flex' : 'none' }}>
       <div className="header">
         <div className="header-title-row">
+          <button className="mobile-menu-btn" onClick={onMenuClick}>
+            <Menu size={20} />
+          </button>
           <div className="header-avatar">
-            <Bot size={20} />
+            {profile.name.charAt(0).toUpperCase()}
           </div>
           <div>
             <h1>Samaira for {profile.name}</h1>
@@ -348,16 +351,24 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
   const [activeProfile, setActiveProfile] = useState(profiles[0]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRelation, setSelectedRelation] = useState('spouse');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleProfileSwitch = (p: any) => {
     setActiveProfile(p);
+    setSidebarOpen(false);
   };
 
   return (
     <div className="layout-container">
       
+      {/* Mobile Sidebar Overlay */}
+      <div 
+        className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} 
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div className="sidebar-title">
             <Users size={20} />
@@ -457,6 +468,7 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
             profile={p} 
             user={user} 
             isActive={p.id === activeProfile?.id} 
+            onMenuClick={() => setSidebarOpen(true)}
           />
         ))}
 
