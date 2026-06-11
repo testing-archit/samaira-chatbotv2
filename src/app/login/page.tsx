@@ -13,8 +13,8 @@ export default async function LoginPage(props: {
           <div className="login-avatar">
             <Bot size={28} />
           </div>
-          <h3>Welcome to Samaira</h3>
-          <p>Sign in or create a new account to secure your family's financial future.</p>
+          <h3>Welcome back</h3>
+          <p>Sign in to access your family&apos;s financial profiles.</p>
         </div>
         
         <form className="login-form">

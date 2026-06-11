@@ -69,7 +69,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         }
       })
       .catch(console.error);
-  }, [profile.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, profile.id]);
 
   const getProfileSessionId = () => {
     if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
