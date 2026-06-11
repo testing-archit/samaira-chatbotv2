@@ -5,15 +5,39 @@ import crypto from 'crypto';
 import postgres from 'postgres';
 import { model } from '../src/lib/model';
 
-const sql = postgres(process.env.DATABASE_URL as string);
+const sql = postgres(process.env.DATABASE_URL as string, { ssl: 'require' });
 
 function hashContent(content: string) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
-function chunkMarkdown(markdown: string): string[] {
-  // A simple chunking strategy: split on H2
-  return markdown.split(/(?=^## )/m).map(s => s.trim()).filter(Boolean);
+function chunkMarkdown(markdown: string, chunkSize = 1000, chunkOverlap = 200): string[] {
+  const paragraphs = markdown.split(/\n\n+/);
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  for (const para of paragraphs) {
+    if (currentChunk.length + para.length > chunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.trim());
+      
+      // Calculate overlap
+      const overlapStart = Math.max(0, currentChunk.length - chunkOverlap);
+      const overlapText = currentChunk.slice(overlapStart);
+      // Find the first space to avoid cutting words in half
+      const firstSpace = overlapText.indexOf(' ');
+      const cleanOverlap = firstSpace !== -1 ? overlapText.slice(firstSpace) : overlapText;
+      
+      currentChunk = cleanOverlap.trim() + '\n\n' + para;
+    } else {
+      currentChunk = currentChunk ? currentChunk + '\n\n' + para : para;
+    }
+  }
+  
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  return chunks;
 }
 
 async function ingestFile(filePath: string, kbType: string) {

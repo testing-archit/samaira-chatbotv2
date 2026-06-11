@@ -1,17 +1,42 @@
-const embeddingCache = new Map<string, number[]>();
+import { sql } from './db';
+import crypto from 'crypto';
+
+function hashContent(content: string) {
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
 const retrievalCache = new Map<string, any[]>();
 
 export const cache = {
-  getEmbedding(text: string) {
-    return embeddingCache.get(text);
-  },
-  setEmbedding(text: string, embedding: number[]) {
-    // Basic LRU logic
-    if (embeddingCache.size > 1000) {
-      const firstKey = embeddingCache.keys().next().value;
-      if (firstKey) embeddingCache.delete(firstKey);
+  async getEmbedding(text: string): Promise<number[] | null> {
+    try {
+      const hash = hashContent(text);
+      const res = await sql`SELECT embedding FROM embedding_cache WHERE content_hash = ${hash} LIMIT 1`;
+      if (res.length > 0 && res[0].embedding) {
+        let embeddingStr = res[0].embedding;
+        if (typeof embeddingStr === 'string') {
+          // If vector is returned as a string '[1,2,3]'
+          embeddingStr = embeddingStr.replace('[', '').replace(']', '').split(',').map(Number);
+        }
+        return embeddingStr as number[];
+      }
+    } catch (e) {
+      console.error('Embedding cache read error:', e);
     }
-    embeddingCache.set(text, embedding);
+    return null;
+  },
+  async setEmbedding(text: string, embedding: number[]) {
+    try {
+      const hash = hashContent(text);
+      const formattedEmbedding = `[${embedding.join(',')}]`;
+      await sql`
+        INSERT INTO embedding_cache (content_hash, embedding)
+        VALUES (${hash}, ${formattedEmbedding}::vector)
+        ON CONFLICT (content_hash) DO NOTHING
+      `;
+    } catch (e) {
+      console.error('Embedding cache write error:', e);
+    }
   },
   getRetrieval(query: string, kbType: string) {
     return retrievalCache.get(`${kbType}:${query}`);

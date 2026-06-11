@@ -44,12 +44,57 @@ const toolLabelsDone: Record<string, string> = {
   financial_calculator: '✓ Calculated mathematically',
 };
 
+import { useChat } from '@ai-sdk/react';
+
 // ─── Chat Instance Component (one per profile) ───
 function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, user: any, isActive: boolean, onMenuClick: () => void }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const getProfileSessionId = () => {
+    if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
+    const userId = user?.id || 'unknown';
+    const sessionId = profile.id; // Deterministic session ID
+    return { userId, sessionId };
+  };
+
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
+  const { messages, setMessages, sendMessage, status } = useChat({
+    // @ts-ignore - Vercel AI SDK react types mismatch
+    api: '/api/chat',
+    body: {
+      user_id: user?.id,
+      profile_id: profile.id,
+      profile_name: profile.name,
+      profile_relation: profile.relation,
+      session_id: profile.id,
+    },
+    onError: (error) => {
+      console.error('Chat error:', error);
+      setIsLoading(false);
+    },
+    onFinish: () => setIsLoading(false)
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
+
+  const append = (msg: any) => {
+    setIsLoading(true);
+    // Vercel AI SDK 3.x useChat hook uses sendMessage
+    if (sendMessage) sendMessage(msg);
+  };
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim() || isLoading) return;
+    append({ role: 'user', content: input });
+    setInput('');
+  };
+
+  useEffect(() => {
+    if (status === 'ready' || status === 'error') setIsLoading(false);
+    else if (status === 'submitted' || status === 'streaming') setIsLoading(true);
+  }, [status]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,146 +110,28 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
       .then(res => res.json())
       .then(data => {
         if (data.messages && data.messages.length > 0) {
-          setMessages(data.messages);
+          // Convert DB messages to AI SDK format
+          const formatted = data.messages.map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content || '',
+            toolInvocations: m.toolInvocations || m.tool_calls || [],
+          }));
+          setMessages(formatted);
         }
       })
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, profile.id]);
 
-  const getProfileSessionId = () => {
-    if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
-    const userId = user?.id || 'unknown';
-    const sessionId = profile.id; // Deterministic session ID
-    return { userId, sessionId };
-  };
-
   const handleReset = async () => {
-    // Optionally delete messages from DB or just clear local state
     setMessages([]);
-    setInput('');
-  };
-
-  const append = useCallback(async (message: Message) => {
-    const { userId, sessionId } = getProfileSessionId();
-    const newMessages = [...messages, message];
-    setMessages(newMessages);
-    setIsLoading(true);
-
-    const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
-    const aiMessage: Message = {
-      id: aiMessageId,
-      role: 'assistant',
-      content: '',
-      toolInvocations: [],
-    };
-
-    setMessages((prev) => [...prev, aiMessage]);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages,
-          user_id: user.id,
-          profile_id: profile.id,
-          profile_name: profile.name,
-          profile_relation: profile.relation,
-          session_id: sessionId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Error: ${response.statusText}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (reader) {
-        let buffer = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.substring(6));
-
-                if (data.type === 'tool_call') {
-                  setMessages((prev) => {
-                    const newArr = [...prev];
-                    const last = { ...newArr[newArr.length - 1] };
-                    const currentInvocations = last.toolInvocations || [];
-                    const alreadyExists = currentInvocations.some(
-                      (t: any) => t?.toolCallId === data.data?.toolCallId
-                    );
-                    if (!alreadyExists) {
-                      last.toolInvocations = [...currentInvocations, data.data];
-                      newArr[newArr.length - 1] = last;
-                    }
-                    return newArr;
-                  });
-                } else if (data.type === 'text') {
-                  setMessages((prev) => {
-                    const newArr = [...prev];
-                    const last = { ...newArr[newArr.length - 1] };
-                    last.content = last.content + data.data;
-                    newArr[newArr.length - 1] = last;
-                    return newArr;
-                  });
-                }
-              } catch (e) {
-                console.error('Error parsing SSE data', e);
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      setMessages((prev) => {
-        const newArr = [...prev];
-        newArr[newArr.length - 1] = {
-          id: aiMessageId,
-          role: 'assistant',
-          content: '⚠️ Sorry, I encountered an error. Please try again.',
-          toolInvocations: [],
-        };
-        return newArr;
-      });
-    } finally {
-      setIsLoading(false);
-      setTimeout(() => {
-        if (isActive) inputRef.current?.focus();
-      }, 100);
-    }
-  }, [messages, profile, user, isActive]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    const userMessage: Message = {
-      id: 'msg_' + Math.random().toString(36).substring(2, 9),
-      role: 'user',
-      content: input.trim(),
-      toolInvocations: [],
-    };
-    setInput('');
-    append(userMessage);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e as any);
+      handleSubmit(e);
     }
   };
 
@@ -248,10 +175,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                   className="suggestion-btn"
                   onClick={() =>
                     append({
-                      id: 'msg_' + i,
                       role: 'user',
-                      content: text,
-                      toolInvocations: [],
+                      content: text
                     })
                   }
                 >
@@ -261,7 +186,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
             </div>
           </div>
         ) : (
-          messages.map((m) => (
+          messages.map((m: any) => (
             <div
               key={m.id}
               className={`message-wrapper ${m.role === 'user' ? 'user' : 'ai'}`}
@@ -278,8 +203,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                 {m.toolInvocations && m.toolInvocations.length > 0 && (
                   <div className="tool-invocations-list">
                     {m.toolInvocations
-                      .filter((tool) => tool.toolName !== 'update_profile' || Object.keys(tool.args || {}).length > 0)
-                      .map((tool, idx) => (
+                      .filter((tool: any) => tool.toolName !== 'update_profile' || Object.keys(tool.args || {}).length > 0)
+                      .map((tool: any, idx: number) => (
                       <div key={idx} className={`tool-invocation ${m.content ? 'done' : ''}`}>
                         {m.content ? (
                           <Check size={13} strokeWidth={3} />
@@ -325,7 +250,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
           <input
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask about family wealth, FD vs MF, or plan your goals..."
             disabled={isLoading}

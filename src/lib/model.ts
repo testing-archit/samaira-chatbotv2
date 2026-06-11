@@ -30,7 +30,7 @@ async function withResilience<T>(operation: () => Promise<T>, taskName: string):
 
 export const model = {
   embed: async (content: string) => {
-    const cached = cache.getEmbedding(content);
+    const cached = await cache.getEmbedding(content);
     if (cached) return { embedding: cached };
 
     return withResilience(async () => {
@@ -55,7 +55,7 @@ export const model = {
       const data = await res.json();
       const embeddingArray: number[] = data.data[0].embedding;
 
-      cache.setEmbedding(content, embeddingArray);
+      await cache.setEmbedding(content, embeddingArray);
       return { embedding: embeddingArray };
     }, 'embed');
   },
