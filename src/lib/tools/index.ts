@@ -186,7 +186,31 @@ export function getTools(sessionId: string, profileId: string) {
         const profile = await getUserProfile(profileId);
         if (!profile) return "Error: Profile is empty. Collect data first.";
         const strategy = generateStrategy(profile);
-        return JSON.stringify(strategy);
+
+        // Return pre-formatted markdown so the model doesn't reformat it into a giant table
+        const lines: string[] = [];
+
+        if (strategy.issues.length > 0) {
+          lines.push('### ⚠️ Areas to Address');
+          strategy.issues.forEach(issue => lines.push(`- ${issue}`));
+          lines.push('');
+        }
+
+        if (strategy.recommendations.length > 0) {
+          lines.push('### ✅ Recommended Actions');
+          strategy.recommendations.forEach(rec => lines.push(`- ${rec}`));
+          lines.push('');
+        }
+
+        if (strategy.goalStrategies.length > 0) {
+          lines.push('### 🎯 Goal-wise Plan');
+          strategy.goalStrategies.forEach(g => lines.push(`- ${g}`));
+          lines.push('');
+        }
+
+        lines.push('> Present this strategy to the user in an encouraging, warm tone. Do NOT reformat into a table. Just summarise each point naturally in 1-2 sentences each.');
+
+        return lines.join('\n');
       },
     },
 
