@@ -28,6 +28,8 @@ const suggestions = [
   { label: "FD vs mutual fund", prompt: "Explain FD vs mutual fund for a young family" },
   { label: "What is the family tree?", prompt: "What is the Family Tree feature?" },
   { label: "Plan my family goals", prompt: "Help me plan for my family's financial goals" },
+  { label: "Octaraa vs Groww", prompt: "How does Octaraa compare to Groww for family wealth?" },
+  { label: "Retirement planning", prompt: "How much should I save for retirement?" }
 ];
 
 const getToolLabel = (tool: any) => {
