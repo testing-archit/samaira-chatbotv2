@@ -4,6 +4,8 @@ import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
 
+export const runtime = 'edge';
+
 const GEMINI_BASE = 'https://openrouter.ai/api/v1';
 const CHAT_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 
