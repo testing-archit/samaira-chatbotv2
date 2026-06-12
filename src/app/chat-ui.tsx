@@ -98,10 +98,19 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
     return { userId, sessionId };
   };
 
-  const handleReset = async () => {
-    // Optionally delete messages from DB or just clear local state
+  const handleDeleteChat = async () => {
+    const { sessionId } = getProfileSessionId();
+    if (!confirm(`Are you sure you want to permanently delete all messages for ${profile.name}?`)) return;
+    
+    // Optimistically clear UI
     setMessages([]);
     setInput('');
+    
+    try {
+      await fetch(`/api/messages?session_id=${sessionId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Failed to clear chat', e);
+    }
   };
 
   const append = useCallback(async (message: Message) => {
@@ -246,12 +255,12 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
             <p>Your Family Wealth Assistant by Octaraa</p>
           </div>
           <button
-            onClick={handleReset}
+            onClick={handleDeleteChat}
             className="reset-btn"
-            title="Start a new conversation"
-            aria-label="Reset conversation"
+            title="Delete conversation"
+            aria-label="Delete conversation"
           >
-            <RefreshCw size={16} />
+            <Trash size={16} />
           </button>
         </div>
       </div>

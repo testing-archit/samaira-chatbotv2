@@ -50,3 +50,33 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('session_id');
+
+    if (!sessionId) {
+      return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
+    }
+
+    // Verify the session belongs to the user
+    const sessions = await sql`SELECT id FROM sessions WHERE id = ${sessionId} AND user_id = ${user.id}`;
+    if (sessions.length === 0) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Delete the messages
+    await sql`DELETE FROM messages WHERE session_id = ${sessionId}`;
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting messages:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
