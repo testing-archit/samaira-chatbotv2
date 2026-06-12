@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 const pdfParse = require('pdf-parse');
+import pLimit from 'p-limit';
 import { model } from '../src/lib/model';
 import { sql } from '../src/lib/db';
 
@@ -57,11 +58,12 @@ async function ingestPdf(filePath: string, kbType: string) {
     let newChunks = 0;
     let skippedChunks = 0;
 
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
+    // Concurrency limit of 10 parallel operations to avoid rate limits
+    const limit = pLimit(10);
+    const tasks = chunks.map((chunk, index) => limit(async () => {
       if (!chunk || chunk.length < 50) {
         skippedChunks++;
-        continue; // skip tiny/empty chunks
+        return; // skip tiny/empty chunks
       }
 
       const contentHash = hashContent(chunk);
@@ -70,21 +72,28 @@ async function ingestPdf(filePath: string, kbType: string) {
       if (existing.length > 0) {
         skippedChunks++;
         process.stdout.write('S'); // S for skip
-        continue;
+        return;
       }
 
-      const { embedding } = await model.embed(chunk);
-      const id = crypto.randomUUID();
-      const title = path.basename(filePath);
+      try {
+        const { embedding } = await model.embed(chunk);
+        const id = crypto.randomUUID();
+        const title = path.basename(filePath);
 
-      await sql`
-        INSERT INTO knowledge_chunks (id, kb, content, content_hash, embedding, status, title)
-        VALUES (${id}, ${kbType}, ${chunk}, ${contentHash}, ${JSON.stringify(embedding)}, 'live', ${title})
-        ON CONFLICT (content_hash) DO NOTHING
-      `;
-      newChunks++;
-      process.stdout.write('.'); // dot for success
-    }
+        await sql`
+          INSERT INTO knowledge_chunks (id, kb, content, content_hash, embedding, status, title)
+          VALUES (${id}, ${kbType}, ${chunk}, ${contentHash}, ${JSON.stringify(embedding)}, 'live', ${title})
+          ON CONFLICT (content_hash) DO NOTHING
+        `;
+        newChunks++;
+        process.stdout.write('.'); // dot for success
+      } catch (err) {
+        process.stdout.write('E'); // E for error
+        console.error(`\nError embedding chunk ${index}:`, err);
+      }
+    }));
+
+    await Promise.all(tasks);
     console.log(`\n✅ Finished ${filePath}: Ingested ${newChunks} new chunks, skipped ${skippedChunks}.`);
   } catch (error) {
     console.error(`❌ Error parsing PDF ${filePath}:`, error);
