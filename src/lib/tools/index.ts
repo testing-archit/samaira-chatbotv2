@@ -111,7 +111,7 @@ export function getTools(sessionId: string, profileId: string) {
     },
 
     search_finance_education: {
-      description: 'Search the finance education knowledge base. Use this to answer general personal finance questions.',
+      description: 'Search the finance education knowledge base. Use this to answer general personal finance questions, as well as questions about Mutual Fund Distributors (MFDs), SEBI regulatory compliance, advertising rules, and financial exams (NISM).',
       parameters: z.object({
         query: z.string().describe('The personal finance question or topic'),
       }),
