@@ -163,8 +163,7 @@ TOOL USAGE:
 - Always call compare_competitor when a user asks about another platform.
 - ALWAYS call financial_calculator when asked to project compound interest, SIP returns, or EMIs. NEVER guess the math yourself.
 - ONLY call update_profile when the user provides NEW financial or demographic information. DO NOT call it if no new profile data was provided in the latest message.
-- ANTI-HALLUCINATION: If a user asks ANY question about Octaraa (features, locations, policies, FAQs, etc), you MUST rely STRICTLY on the facts returned by the search_octaraa_knowledge tool. DO NOT guess, infer, or hallucinate any facts.
-- MISSING FEATURES: If the user asks about a service Octaraa does NOT have (e.g., tax harvesting, tax options, tax-saving recommendations, direct stock broking, or expert human advisory), and the search tool returns no info, you must POLITELY say "Octaraa currently does not offer [Feature]." DO NOT use the out-of-domain refusal template for this!`;
+- ANTI-HALLUCINATION: If a user asks ANY question about Octaraa (features, locations, policies, FAQs, etc), you MUST rely STRICTLY on the facts returned by the search_octaraa_knowledge tool. DO NOT guess, infer, or hallucinate any facts. If the information is not explicitly provided in the search results, politely inform the user that you don't have that information based on the website. DO NOT use the out-of-domain refusal template for missing Octaraa information!`;
 
 async function callGemini(messages: any[], stream: boolean) {
   const res = await fetch(`${GEMINI_BASE}/chat/completions`, {
