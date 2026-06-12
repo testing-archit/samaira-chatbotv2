@@ -89,6 +89,7 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [customText, setCustomText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     setRating(initialRating || 0);
@@ -103,6 +104,12 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
         body: JSON.stringify({ messageId, rating: newRating, text: fullText })
       });
       setRating(newRating);
+      if (newRating === 1) {
+        setSuccessMessage("We're glad you're enjoying using the service!");
+      } else if (newRating === -1) {
+        setSuccessMessage("Thanks for the feedback, we will investigate this.");
+      }
+      setTimeout(() => setSuccessMessage(''), 5000);
     } catch (e) { console.error(e); } finally {
       setIsSubmitting(false);
     }
@@ -152,6 +159,11 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
             {rating === -1 && <span style={{ marginLeft: 4, fontSize: '0.75rem' }}>Reported</span>}
           </button>
         </div>
+        {successMessage && (
+          <div className="feedback-success-msg" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+            {successMessage}
+          </div>
+        )}
       </div>
 
       {showReportModal && (
