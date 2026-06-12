@@ -10,7 +10,7 @@ async function scrapeOctaraa() {
   
   const visited = new Set<string>();
   const queue: string[] = [BASE_URL];
-  let allChunks: string[] = [];
+  const allChunks: string[] = [];
   
   while (queue.length > 0) {
     let currentUrl = queue.shift()!;

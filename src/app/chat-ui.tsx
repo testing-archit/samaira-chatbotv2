@@ -122,7 +122,6 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         }
       })
       .catch(console.error);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
 
   const loadMoreMessages = useCallback(async () => {
@@ -169,12 +168,12 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
     }
   };
 
-  const getProfileSessionId = () => {
+  function getProfileSessionId() {
     if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
     const userId = user?.id || 'unknown';
     const sessionId = profile.id; // Deterministic session ID
     return { userId, sessionId };
-  };
+  }
 
   const handleDeleteChat = async () => {
     const { sessionId } = getProfileSessionId();

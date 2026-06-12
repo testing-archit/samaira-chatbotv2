@@ -3,6 +3,7 @@ config({ path: '.env.local' });
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdfParse = require('pdf-parse');
 import pLimit from 'p-limit';
 import { model } from '../src/lib/model';

@@ -11,6 +11,7 @@ export function SubmitButtons() {
 
   // Reset when the form is done submitting
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!pending) setActiveAction(null);
   }, [pending]);
 
