@@ -509,7 +509,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     <div className="markdown-body">
                       <MarkdownRenderer content={m.content} />
                     </div>
-                    {m.role === 'assistant' && !m.id.startsWith('msg_') && (
+                    {m.role === 'assistant' && (
                       <MessageFeedback messageId={m.id} initialRating={m.feedbackRating} initialText={m.feedbackText} />
                     )}
                   </>
