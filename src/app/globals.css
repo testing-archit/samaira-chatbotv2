@@ -803,6 +803,7 @@ body {
 .layout-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background-color: var(--bg-primary);
   overflow: hidden;
@@ -1077,7 +1078,7 @@ body {
     overflow: hidden;
     /* Support notched devices */
     padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    /* Let the inner containers handle bottom safe area */
   }
 
   /* ─ Layout ─ */
