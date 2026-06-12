@@ -7,13 +7,21 @@ import { config } from '../config';
 import { logger } from '../logger';
 import { Pinecone } from '@pinecone-database/pinecone';
 
-const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
+let pc: Pinecone | null = null;
+function getPineconeClient() {
+  if (!pc) {
+    pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
+  }
+  return pc;
+}
+
 const PINECONE_INDEX = 'octaraa-kb';
 
 // Basic vector search
 async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 8) {
   const { embedding } = await model.embed(query);
-  const index = pc.Index(PINECONE_INDEX);
+  const pcClient = getPineconeClient();
+  const index = pcClient.Index(PINECONE_INDEX);
 
   if (kbFilter) {
     const queryResponse = await index.query({
