@@ -45,7 +45,7 @@ export default function ChatPanel({
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {onMenuOpen && (
-            <button onClick={onMenuOpen} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }} aria-label="Open menu">
+            <button className="mobile-menu-btn" onClick={onMenuOpen} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }} aria-label="Open menu">
               <i className="ti ti-menu-2" style={{ fontSize: 18, color: "var(--text-secondary)" }} aria-hidden="true" />
             </button>
           )}
