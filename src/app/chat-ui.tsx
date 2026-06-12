@@ -324,8 +324,9 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                 const data = JSON.parse(line.substring(6));
 
                 if (data.type === 'message_id') {
+                  const targetId = aiMessageId;
                   setMessages((prev) => {
-                    const index = prev.findIndex(m => m.id === aiMessageId);
+                    const index = prev.findIndex(m => m.id === targetId);
                     if (index === -1) return prev;
                     const newArr = [...prev];
                     const last = { ...newArr[index] };
@@ -335,8 +336,9 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                   });
                   aiMessageId = data.data;
                 } else if (data.type === 'tool_call') {
+                  const targetId = aiMessageId;
                   setMessages((prev) => {
-                    const index = prev.findIndex(m => m.id === aiMessageId);
+                    const index = prev.findIndex(m => m.id === targetId);
                     if (index === -1) return prev;
                     const newArr = [...prev];
                     const last = { ...newArr[index] };
@@ -351,8 +353,9 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     return newArr;
                   });
                 } else if (data.type === 'text') {
+                  const targetId = aiMessageId;
                   setMessages((prev) => {
-                    const index = prev.findIndex(m => m.id === aiMessageId);
+                    const index = prev.findIndex(m => m.id === targetId);
                     if (index === -1) return prev;
                     const newArr = [...prev];
                     const last = { ...newArr[index] };
