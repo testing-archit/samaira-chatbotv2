@@ -16,7 +16,7 @@ export async function login(formData: FormData) {
   const results = await sql`SELECT id, password_hash FROM users WHERE email = ${email}`
   
   if (results.length === 0) {
-    redirect('/login?error=Invalid email or password.')
+    redirect('/login?error=Account does not exist. Please sign up first.')
   }
 
   const user = results[0]
