@@ -321,6 +321,10 @@ export async function POST(req: Request) {
                 finalText = safeFinalText;
               }
 
+              // Generate Assistant Message ID and send it first
+              const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
+              sendEvent('message_id', aiMessageId);
+
               // Stream the final text chunk by chunk for a smooth UI experience
               const words = finalText.split(' ');
               for (let i = 0; i < words.length; i++) {
@@ -330,7 +334,6 @@ export async function POST(req: Request) {
               }
 
               // Insert Assistant Message into DB
-              const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
               const allToolCalls = openaiMessages
                 .filter((m: any) => m.role === 'assistant' && m.tool_calls)
                 .flatMap((m: any) => m.tool_calls.map((tc: any) => {

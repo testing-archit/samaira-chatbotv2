@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X } from 'lucide-react';
+import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
@@ -18,6 +18,8 @@ interface Message {
   content: string;
   toolInvocations: Array<{ toolCallId: string; toolName: string; args: any }>;
   created_at?: string;
+  feedbackRating?: number;
+  feedbackText?: string | null;
 }
 
 const suggestions = [
@@ -73,6 +75,83 @@ const getToolLabelDone = (tool: any) => {
   };
   return toolLabelsDone[tool?.toolName] || `⚙️ Used ${tool?.toolName || 'tool'}`;
 };
+
+function MessageFeedback({ messageId, initialRating, initialText }: { messageId: string, initialRating?: number, initialText?: string | null }) {
+  const [rating, setRating] = useState(initialRating || 0);
+  const [text, setText] = useState(initialText || '');
+  const [showInput, setShowInput] = useState(false);
+  const [submitted, setSubmitted] = useState(!!initialText);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setRating(initialRating || 0);
+    setText(initialText || '');
+    setSubmitted(!!initialText);
+  }, [initialRating, initialText]);
+
+  const submitFeedback = async (newRating: number, newText: string) => {
+    setIsSubmitting(true);
+    try {
+      await fetch('/api/messages/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, rating: newRating, text: newText })
+      });
+    } catch (e) { console.error(e); } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRate = (r: number) => {
+    if (rating === r) return;
+    setRating(r);
+    submitFeedback(r, text);
+    if (!submitted) setShowInput(true);
+  };
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    submitFeedback(rating, text);
+    setSubmitted(true);
+    setShowInput(false);
+  };
+
+  return (
+    <div className="message-feedback">
+      <div className="feedback-buttons">
+        <button 
+          onClick={() => handleRate(1)} 
+          className={`feedback-btn ${rating === 1 ? 'active' : ''}`}
+          title="Helpful"
+          disabled={isSubmitting}
+        >
+          <ThumbsUp size={14} />
+        </button>
+        <button 
+          onClick={() => handleRate(-1)} 
+          className={`feedback-btn ${rating === -1 ? 'active' : ''}`}
+          title="Not Helpful"
+          disabled={isSubmitting}
+        >
+          <ThumbsDown size={14} />
+        </button>
+      </div>
+      {showInput && !submitted && rating !== 0 && (
+        <form onSubmit={handleTextSubmit} className="feedback-form">
+          <input 
+            value={text} 
+            onChange={(e) => setText(e.target.value)} 
+            placeholder="Optional feedback..."
+            className="feedback-input"
+            disabled={isSubmitting}
+          />
+          <button type="submit" className="feedback-submit" disabled={isSubmitting || !text.trim()}>Submit</button>
+        </form>
+      )}
+    </div>
+  );
+}
 
 // ─── Chat Instance Component (one per profile) ───
 function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, user: any, isActive: boolean, onMenuClick: () => void }) {
@@ -197,7 +276,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
     setMessages(newMessages);
     setIsLoading(true);
 
-    const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
+    let aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
     const aiMessage: Message = {
       id: aiMessageId,
       role: 'assistant',
@@ -244,7 +323,18 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
               try {
                 const data = JSON.parse(line.substring(6));
 
-                if (data.type === 'tool_call') {
+                if (data.type === 'message_id') {
+                  setMessages((prev) => {
+                    const index = prev.findIndex(m => m.id === aiMessageId);
+                    if (index === -1) return prev;
+                    const newArr = [...prev];
+                    const last = { ...newArr[index] };
+                    last.id = data.data;
+                    newArr[index] = last;
+                    return newArr;
+                  });
+                  aiMessageId = data.data;
+                } else if (data.type === 'tool_call') {
                   setMessages((prev) => {
                     const index = prev.findIndex(m => m.id === aiMessageId);
                     if (index === -1) return prev;
@@ -412,9 +502,14 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                 )}
 
                 {m.content ? (
-                  <div className="markdown-body">
-                    <MarkdownRenderer content={m.content} />
-                  </div>
+                  <>
+                    <div className="markdown-body">
+                      <MarkdownRenderer content={m.content} />
+                    </div>
+                    {m.role === 'assistant' && !m.id.startsWith('msg_') && (
+                      <MessageFeedback messageId={m.id} initialRating={m.feedbackRating} initialText={m.feedbackText} />
+                    )}
+                  </>
                 ) : (
                   isLoading && m.role === 'assistant' && (!m.toolInvocations || m.toolInvocations.length === 0) ? (
                     <div className="typing-dots">

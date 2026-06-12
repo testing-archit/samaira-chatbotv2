@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     if (beforeParam) {
       const beforeDate = new Date(beforeParam);
       messages = await sql`
-        SELECT id, role, content, tool_calls, created_at 
+        SELECT id, role, content, tool_calls, created_at, feedback_rating, feedback_text 
         FROM messages 
         WHERE session_id = ${sessionId} AND created_at < ${beforeDate}
         ORDER BY created_at DESC
@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       `;
     } else {
       messages = await sql`
-        SELECT id, role, content, tool_calls, created_at 
+        SELECT id, role, content, tool_calls, created_at, feedback_rating, feedback_text 
         FROM messages 
         WHERE session_id = ${sessionId}
         ORDER BY created_at DESC
@@ -69,6 +69,8 @@ export async function GET(request: Request) {
         content: msg.content,
         toolInvocations: Array.isArray(parsedTools) ? parsedTools : [],
         created_at: msg.created_at,
+        feedbackRating: msg.feedback_rating || 0,
+        feedbackText: msg.feedback_text || null,
       };
     });
 

@@ -1,0 +1,2 @@
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback_rating INT DEFAULT 0;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS feedback_text TEXT;

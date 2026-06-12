@@ -1296,3 +1296,61 @@ body {
     font-size: 1.1rem;
   }
 }
+
+/* Message Feedback UI */
+.message-feedback {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.feedback-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+.feedback-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.feedback-btn:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.feedback-btn.active {
+  color: var(--accent);
+}
+.feedback-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.feedback-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.feedback-submit {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.feedback-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
