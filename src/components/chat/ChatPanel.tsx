@@ -64,7 +64,7 @@ export default function ChatPanel({
           }} aria-hidden="true">S</span>
           <div>
             <p style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>Samaira</p>
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.2 }}>Planning for {profile?.name}</p>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.2 }}>Planning for {profile?.name} {profile?.relation && `(${profile.relation})`}</p>
           </div>
         </div>
       </header>
