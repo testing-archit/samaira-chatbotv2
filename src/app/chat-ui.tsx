@@ -73,25 +73,21 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
       .then(res => res.json())
       .then(data => {
         if (data.messages && data.messages.length > 0) {
-          // If we are currently fetching the stream for this profile, keep the dummy message
           setMessages(prev => {
-            const aiMsg = prev.find(m => m.id.startsWith('msg_') && m.role === 'assistant' && !m.content);
-            if (isLoading && aiMsg && !data.messages.some((m: any) => m.id === aiMsg.id)) {
-              return [...data.messages, aiMsg];
-            }
-            return data.messages;
+            // Preserve any messages that were added locally (e.g. user sent a message before fetch resolved)
+            const localOnlyMessages = prev.filter(pm => !data.messages.some((dm: any) => dm.id === pm.id));
+            return [...data.messages, ...localOnlyMessages];
           });
         } else {
           setMessages(prev => {
-            const aiMsg = prev.find(m => m.id.startsWith('msg_') && m.role === 'assistant' && !m.content);
-            if (isLoading && aiMsg) return [aiMsg];
-            return [];
+            // If DB is empty, just keep whatever the user might have already typed
+            return prev;
           });
         }
       })
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, profile.id]);
+  }, [profile.id]);
 
   const getProfileSessionId = () => {
     if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
@@ -416,6 +412,9 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
   const [selectedRelation, setSelectedRelation] = useState('spouse');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const [profileToDelete, setProfileToDelete] = useState<any>(null);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   const handleProfileSwitch = (p: any) => {
     setActiveProfile(p);
@@ -452,12 +451,16 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
                 <div className="profile-relation">{p.relation}</div>
               </div>
               {p.relation !== 'self' && (
-                <form action={deleteProfile}>
-                  <input type="hidden" name="profileId" value={p.id} />
-                  <button type="submit" className="delete-profile-btn">
-                    <Trash size={14} />
-                  </button>
-                </form>
+                <button 
+                  type="button" 
+                  className="delete-profile-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileToDelete(p);
+                  }}
+                >
+                  <Trash size={14} />
+                </button>
               )}
             </div>
           ))}
@@ -489,11 +492,14 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
             <div className="modal-content">
               <h3>Add Family Member</h3>
               <form action={async (fd) => { 
+                if (isSubmittingRef.current) return;
+                isSubmittingRef.current = true;
                 setIsSubmitting(true);
                 try {
                   await addProfile(fd); 
                   setShowAddModal(false); 
                 } finally {
+                  isSubmittingRef.current = false;
                   setIsSubmitting(false);
                 }
               }} className="modal-form">
@@ -528,6 +534,50 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
                   <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary" disabled={isSubmitting}>Cancel</button>
                   <button type="submit" className="btn-primary" disabled={isSubmitting}>
                     {isSubmitting ? <><Loader2 size={16} className="spinning" /> Adding...</> : 'Add Profile'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Profile Modal */}
+        {profileToDelete && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h3>Delete Family Member</h3>
+              <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Are you sure you want to permanently delete <strong>{profileToDelete.name}</strong> from your family tree? Their chat history will also be removed.
+              </p>
+              <form 
+                action={async (fd) => {
+                  setIsDeletingProfile(true);
+                  try {
+                    await deleteProfile(fd);
+                    setProfileToDelete(null);
+                  } finally {
+                    setIsDeletingProfile(false);
+                  }
+                }} 
+                className="modal-form"
+              >
+                <input type="hidden" name="profileId" value={profileToDelete.id} />
+                <div className="modal-actions">
+                  <button 
+                    type="button" 
+                    className="btn-secondary" 
+                    onClick={() => setProfileToDelete(null)}
+                    disabled={isDeletingProfile}
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn-primary" 
+                    style={{ backgroundColor: 'var(--error, #ef4444)' }}
+                    disabled={isDeletingProfile}
+                  >
+                    {isDeletingProfile ? <><Loader2 size={16} className="spinning" /> Deleting...</> : 'Delete Member'}
                   </button>
                 </div>
               </form>
