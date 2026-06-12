@@ -27,26 +27,50 @@ const suggestions = [
   "How much term insurance do I need?",
 ];
 
-const toolLabels: Record<string, string> = {
-  search_octaraa_knowledge: '🔍 Searching Octaraa knowledge base...',
-  search_finance_education: '📚 Searching finance education base...',
-  compare_competitor: '⚔️ Comparing platforms...',
-  request_profiling_consent: '🔐 Securing your consent...',
-  get_profile: '👤 Reading your profile...',
-  update_profile: '📝 Updating your profile...',
-  generate_strategy: '📊 Generating your financial strategy...',
-  financial_calculator: '🧮 Calculating the numbers...',
+const getToolLabel = (tool: any) => {
+  if (tool?.toolName === 'compare_competitor' && tool?.args?.competitor) {
+    return `⚔️ Comparing against ${tool.args.competitor}...`;
+  }
+  if (tool?.toolName === 'search_finance_education' && tool?.args?.query) {
+    return `📚 Searching: "${tool.args.query}"...`;
+  }
+  if (tool?.toolName === 'search_octaraa_knowledge' && tool?.args?.query) {
+    return `🔍 Searching Octaraa: "${tool.args.query}"...`;
+  }
+  const toolLabels: Record<string, string> = {
+    search_octaraa_knowledge: '🔍 Searching Octaraa knowledge base...',
+    search_finance_education: '📚 Searching finance education base...',
+    compare_competitor: '⚔️ Comparing platforms...',
+    request_profiling_consent: '🔐 Securing your consent...',
+    get_profile: '👤 Reading your profile...',
+    update_profile: '📝 Updating your profile...',
+    generate_strategy: '📊 Generating your financial strategy...',
+    financial_calculator: '🧮 Calculating the numbers...',
+  };
+  return toolLabels[tool?.toolName] || `⚙️ Running ${tool?.toolName || 'tool'}...`;
 };
 
-const toolLabelsDone: Record<string, string> = {
-  search_octaraa_knowledge: '✓ Searched Octaraa knowledge base',
-  search_finance_education: '✓ Searched finance education base',
-  compare_competitor: '✓ Analyzed competitor',
-  request_profiling_consent: '✓ Secured consent',
-  get_profile: '✓ Read your profile',
-  update_profile: '✓ Updated your profile',
-  generate_strategy: '✓ Generated personalized strategy',
-  financial_calculator: '✓ Calculated mathematically',
+const getToolLabelDone = (tool: any) => {
+  if (tool?.toolName === 'compare_competitor' && tool?.args?.competitor) {
+    return `✓ Compared against ${tool.args.competitor}`;
+  }
+  if (tool?.toolName === 'search_finance_education' && tool?.args?.query) {
+    return `✓ Searched: "${tool.args.query}"`;
+  }
+  if (tool?.toolName === 'search_octaraa_knowledge' && tool?.args?.query) {
+    return `✓ Searched Octaraa: "${tool.args.query}"`;
+  }
+  const toolLabelsDone: Record<string, string> = {
+    search_octaraa_knowledge: '✓ Searched Octaraa knowledge base',
+    search_finance_education: '✓ Searched finance education base',
+    compare_competitor: '✓ Analyzed competitor',
+    request_profiling_consent: '✓ Secured consent',
+    get_profile: '✓ Read your profile',
+    update_profile: '✓ Updated your profile',
+    generate_strategy: '✓ Generated personalized strategy',
+    financial_calculator: '✓ Calculated mathematically',
+  };
+  return toolLabelsDone[tool?.toolName] || `⚙️ Used ${tool?.toolName || 'tool'}`;
 };
 
 // ─── Chat Instance Component (one per profile) ───
@@ -319,8 +343,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                         )}
                         <span>
                           {m.content 
-                            ? (toolLabelsDone[tool?.toolName] || `⚙️ Used ${tool?.toolName || 'tool'}`)
-                            : (toolLabels[tool?.toolName] || `⚙️ Running ${tool?.toolName || 'tool'}...`)}
+                            ? getToolLabelDone(tool)
+                            : getToolLabel(tool)}
                         </span>
                       </div>
                     ))}
