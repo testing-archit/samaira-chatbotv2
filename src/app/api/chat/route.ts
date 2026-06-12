@@ -4,7 +4,7 @@ import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
 
-export const runtime = 'edge';
+export const preferredRegion = 'bom1'; // Deploy to Mumbai for low latency
 
 const GEMINI_BASE = 'https://openrouter.ai/api/v1';
 const CHAT_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';

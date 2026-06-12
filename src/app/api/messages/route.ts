@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 
-export const runtime = 'edge';
+export const preferredRegion = 'bom1';
 
 export async function GET(request: Request) {
   try {
