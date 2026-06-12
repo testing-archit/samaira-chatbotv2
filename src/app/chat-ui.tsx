@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown, Flag } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
@@ -520,8 +521,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         )}
         {messages.length === 0 ? (
           <div className="welcome-screen">
-            <div className="welcome-icon">
-              <Bot size={48} />
+            <div className="welcome-illustration-wrapper" style={{ marginBottom: '1rem' }}>
+              <Image src="/welcome-illustration.png" alt="Family Wealth" width={240} height={240} style={{ objectFit: 'contain' }} priority />
             </div>
             <h2>Welcome to Octaraa</h2>
             <p>How can I help {profile.name} secure their financial future today?</p>
@@ -554,7 +555,9 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                 {m.role === 'user' ? (
                   <User size={14} />
                 ) : (
-                  <Bot size={14} className="accent-icon" />
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', marginRight: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)' }}>
+                    <Image src="/samaira-avatar.png" alt="Samaira" width={32} height={32} />
+                  </div>
                 )}
                 <span>{m.role === 'user' ? 'You' : 'Samaira'}</span>
               </div>
@@ -691,7 +694,10 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <div className="sidebar-title">
+          <div style={{ padding: '0.5rem 0', display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <Image src="/octaraa-logo.png" alt="Octaraa" width={160} height={50} style={{ objectFit: 'contain' }} priority />
+          </div>
+          <div className="sidebar-title" style={{ marginTop: '1rem' }}>
             <Users size={20} />
             <h2>Family Tree</h2>
           </div>
