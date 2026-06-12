@@ -499,7 +499,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
             {profile.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1>Samaira for {profile.name}</h1>
+            <h1>Samaira &mdash; for {profile.name} {profile.relation && profile.relation !== 'self' ? `(${profile.relation})` : ''}</h1>
             <p>Your Family Wealth Assistant by Octaraa</p>
           </div>
           <button
@@ -601,11 +601,32 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     </div>
                   ) : !isLoading && m.role === 'assistant' && (
                     <span className="text-secondary">...</span>
-                  )
+                  ) || null
                 )}
               </div>
             </div>
           ))
+        )}
+        
+        {messages.length === 1 && messages[0].role === 'assistant' && (
+          <div className="suggestions" style={{ marginTop: '2rem', paddingBottom: '2rem' }}>
+            {suggestions.map((text, i) => (
+              <button
+                key={i}
+                className="suggestion-btn"
+                onClick={() =>
+                  append({
+                    id: 'msg_' + Math.random().toString(36).substring(2, 9),
+                    role: 'user',
+                    content: text,
+                    toolInvocations: [],
+                  })
+                }
+              >
+                {text}
+              </button>
+            ))}
+          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -707,12 +728,17 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
           {profiles.map(p => (
             <div 
               key={p.id} 
-              onClick={() => handleProfileSwitch(p)}
               className={`profile-item ${activeProfile?.id === p.id ? 'active' : ''}`}
+              onClick={() => handleProfileSwitch(p)}
             >
-              <div>
-                <div className="profile-name">{p.name}</div>
-                <div className="profile-relation">{p.relation}</div>
+              <div className="profile-info">
+                <span className="profile-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {p.name}
+                  {p.relation === 'self' && (
+                    <span style={{ fontSize: '0.65rem', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold' }}>YOU</span>
+                  )}
+                </span>
+                <span className="profile-relation">{p.relation}</span>
               </div>
               {p.relation !== 'self' && (
                 <button 

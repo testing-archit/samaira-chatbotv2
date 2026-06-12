@@ -69,11 +69,14 @@ export const guardrails = {
       const disclaimerText = '\n\n*Disclaimer: I am Samaira, an AI assistant providing educational information only. This is not financial advice. Please speak to an Octaraa expert for personalized guidance.*';
       const contactText = '\n\n*Contact: connect@octaraa.com | +91 9667708843*';
 
-      if (!sanitized.includes('Disclaimer: I am Samaira')) {
-        sanitized += disclaimerText;
-      }
-      if (!sanitized.includes('connect@octaraa.com')) {
-        sanitized += contactText;
+      // Only attach full disclaimer for substantive answers (>200 chars)
+      if (sanitized.length > 200) {
+        if (!sanitized.includes('Disclaimer: I am Samaira')) {
+          sanitized += disclaimerText;
+        }
+        if (!sanitized.includes('connect@octaraa.com')) {
+          sanitized += contactText;
+        }
       }
     }
 
