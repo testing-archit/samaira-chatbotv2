@@ -36,7 +36,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
       similarity: match.score || 0,
       fts_rank: 0,
       rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.20);
+    })).filter(r => r.similarity > 0.40);
     
     return results;
   } else {
@@ -51,7 +51,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
       similarity: match.score || 0,
       fts_rank: 0,
       rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.20);
+    })).filter(r => r.similarity > 0.40);
     
     return results;
   }
