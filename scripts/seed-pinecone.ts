@@ -85,7 +85,7 @@ async function ingestFile(filePath: string, kbType: string) {
       if (chunk.includes('status: unconfirmed') || chunk.includes('`unconfirmed`')) status = 'unconfirmed';
 
       vectors.push({
-        id: crypto.randomUUID(),
+        id: contentHash, // Use content hash instead of random UUID to prevent duplicate vectors on re-runs
         values: embedding,
         metadata: {
           kb: kbType,

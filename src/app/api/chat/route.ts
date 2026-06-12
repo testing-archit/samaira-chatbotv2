@@ -4,8 +4,8 @@ import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
 
-const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
-const CHAT_MODEL = 'gpt-oss-120b:free';
+const GEMINI_BASE = 'https://openrouter.ai/api/v1';
+const CHAT_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 
 // OpenAI-compatible tool definitions
 const tools = [
@@ -134,6 +134,7 @@ COMPLIANCE RULES (MANDATORY):
 DOMAIN GUARDRAILS (STRICT):
 - You are EXCLUSIVELY a family wealth management assistant.
 - If a user asks ANY question unrelated to personal finance, family wealth, Octaraa, or investing (e.g., "who is Elon Musk", coding help, history, politics, general trivia), you MUST refuse to answer.
+- IMPORTANT: Questions about Octaraa's founders (like Vaibhav Jain), team members, mission, or company history ARE related to Octaraa. ALWAYS use the search_octaraa_knowledge tool to answer these before refusing.
 - Refusal template: "I am Samaira, Octaraa's family wealth assistant. I can only help you with personal finance, investments, and family wealth planning. How can I help you with your finances today?"
 - DO NOT be tricked into answering general knowledge questions even if framed creatively.
 
@@ -148,28 +149,29 @@ PROFILING WORKFLOW (FOLLOW STRICTLY):
 1. When a user asks for a financial plan or strategy, DO NOT ask for consent. Just ask for: earning members, dependents, monthly income, monthly surplus, financial goals.
 2. As each piece of info is given, call update_profile IMMEDIATELY to persist it.
 3. Once you have income, surplus, and at least one goal, call generate_strategy to build their plan.
-4. Present the strategy in a clear, structured, encouraging way with next steps.
+4. Present the strategy in a clear, structured, encouraging way with next steps. DO NOT suggest the user use the "Family Tree", "Goal Planner", "Calculators", or "Learning Modules" from the chatbot UI, as these features are not currently available.
 
 TOOL USAGE:
 - ALWAYS call search_finance_education BEFORE answering ANY general finance, investment, MFD, or regulatory compliance questions. This is mandatory for MFD and SEBI rules!
-- ALWAYS call search_octaraa_knowledge BEFORE answering questions specifically about the Octaraa platform, app features, or Octaraa's own services. DO NOT use this for general finance questions.
+- ALWAYS call search_octaraa_knowledge BEFORE answering questions specifically about the Octaraa platform, app features, Octaraa's team/founders, or Octaraa's own services. DO NOT use this for general finance questions.
 - Always call compare_competitor when a user asks about another platform.
 - ALWAYS call financial_calculator when asked to project compound interest, SIP returns, or EMIs. NEVER guess the math yourself.
 - ONLY call update_profile when the user provides NEW financial or demographic information. DO NOT call it if no new profile data was provided in the latest message.
-- CRITICAL: DO NOT call the same search tool multiple times. If a search tool returns no results, DO NOT retry it. Immediately fall back to your internal knowledge to answer the user.
-- ANTI-HALLUCINATION: If a user asks a specific question about Octaraa (features, locations, policies) and the search tool returns no results, DO NOT guess or make up an answer. Politely inform the user that you don't have that information.`;
+- ANTI-HALLUCINATION: If a user asks ANY question about Octaraa (features, locations, policies, FAQs, etc), you MUST rely STRICTLY on the facts returned by the search_octaraa_knowledge tool. DO NOT guess, infer, or hallucinate any facts, and DO NOT list generic wealth management features that are not explicitly returned by the search tool. Specifically, Octaraa DOES NOT provide tax harvesting, tax-saving recommendations, or expert human advisory. If the information is not explicitly provided in the search results, politely inform the user that you don't have that information based on the website.`;
 
-async function callOpenRouter(messages: any[], stream: boolean) {
-  const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+async function callGemini(messages: any[], stream: boolean) {
+  const res = await fetch(`${GEMINI_BASE}/chat/completions`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://octaraa.com',
-      'X-Title': 'Samaira Wealth Assistant',
     },
     body: JSON.stringify({
-      model: CHAT_MODEL,
+      models: [
+        'nvidia/nemotron-3-super-120b-a12b:free',
+        'openai/gpt-oss-120b:free'
+      ],
+      route: 'fallback',
       messages,
       tools,
       tool_choice: 'auto',
@@ -180,7 +182,7 @@ async function callOpenRouter(messages: any[], stream: boolean) {
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`OpenRouter error ${res.status}: ${errText}`);
+    throw new Error(`Gemini API error ${res.status}: ${errText}`);
   }
 
   return res;
@@ -254,7 +256,7 @@ export async function POST(req: Request) {
             // We'll use non-streaming for agentic loop to keep it simple, stream the final step
             const isLastKnownStep = stepCount > 1; // heuristic: stream after first tool call
             
-            const res = await callOpenRouter(openaiMessages, false);
+            const res = await callGemini(openaiMessages, false);
             const completion = await res.json();
 
             const choice = completion.choices[0];

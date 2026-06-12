@@ -17,6 +17,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   toolInvocations: Array<{ toolCallId: string; toolName: string; args: any }>;
+  created_at?: string;
 }
 
 const suggestions = [
@@ -81,37 +82,92 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Auto-scroll to bottom only when near the bottom or switching active states
   useEffect(() => {
-    if (isActive) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isActive && !isLoadingMore) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+        if (isNearBottom || messages.length <= 20) {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+      // Only focus if we are not scrolling back up
       inputRef.current?.focus();
     }
-  }, [messages, isActive]);
+  }, [messages, isActive, isLoadingMore]);
 
   useEffect(() => {
     const { sessionId } = getProfileSessionId();
-    fetch(`/api/messages?session_id=${sessionId}`)
+    fetch(`/api/messages?session_id=${sessionId}&limit=20`)
       .then(res => res.json())
       .then(data => {
         if (data.messages && data.messages.length > 0) {
           setMessages(prev => {
-            // Preserve any messages that were added locally (e.g. user sent a message before fetch resolved)
             const localOnlyMessages = prev.filter(pm => !data.messages.some((dm: any) => dm.id === pm.id));
             return [...data.messages, ...localOnlyMessages];
           });
+          setHasMore(data.hasMore);
         } else {
-          setMessages(prev => {
-            // If DB is empty, just keep whatever the user might have already typed
-            return prev;
-          });
+          setHasMore(false);
         }
       })
       .catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.id]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (isLoadingMore || !hasMore || messages.length === 0) return;
+    
+    setIsLoadingMore(true);
+    const { sessionId } = getProfileSessionId();
+    const oldestMessage = messages[0];
+    const beforeParam = oldestMessage.created_at ? encodeURIComponent(oldestMessage.created_at) : '';
+    
+    try {
+      const res = await fetch(`/api/messages?session_id=${sessionId}&limit=20&before=${beforeParam}`);
+      const data = await res.json();
+      
+      if (data.messages && data.messages.length > 0) {
+        const container = messagesContainerRef.current;
+        const previousScrollHeight = container?.scrollHeight || 0;
+        const previousScrollTop = container?.scrollTop || 0;
+
+        setMessages(prev => [...data.messages, ...prev]);
+        setHasMore(data.hasMore);
+
+        requestAnimationFrame(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - previousScrollHeight + previousScrollTop;
+          }
+        });
+      } else {
+        setHasMore(false);
+      }
+    } catch (e) {
+      console.error('Failed to load more messages', e);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [messages, hasMore, isLoadingMore]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    // Load more when reaching the top
+    if (target.scrollTop <= 10 && hasMore && !isLoadingMore) {
+      loadMoreMessages();
+    }
+  };
 
   const getProfileSessionId = () => {
     if (typeof window === 'undefined') return { userId: 'ssr', sessionId: 'ssr' };
@@ -288,7 +344,12 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         </div>
       </div>
 
-      <div className="messages">
+      <div className="messages" ref={messagesContainerRef} onScroll={handleScroll}>
+        {isLoadingMore && (
+          <div className="loading-more" style={{ display: 'flex', justifyContent: 'center', padding: '10px 0', opacity: 0.6 }}>
+            <Loader2 size={16} className="spinning" />
+          </div>
+        )}
         {messages.length === 0 ? (
           <div className="welcome-screen">
             <div className="welcome-icon">

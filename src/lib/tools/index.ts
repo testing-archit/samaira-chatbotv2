@@ -10,36 +10,9 @@ import { Pinecone } from '@pinecone-database/pinecone';
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
 const PINECONE_INDEX = 'octaraa-kb';
 
-// Vector search with HyDE (Hypothetical Document Embeddings)
-async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 3) {
-  let expandedQuery = query;
-  try {
-    const hydeRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: "You are an expert providing hypothetical facts. Provide a very brief, plausible factual paragraph that answers the user's query. This will be used to help a vector search engine find relevant documents. Do not use conversational filler, just the hypothetical facts." },
-          { role: 'user', content: query }
-        ],
-      })
-    });
-    if (hydeRes.ok) {
-      const data = await hydeRes.json();
-      const hypotheticalAnswer = data.choices?.[0]?.message?.content || '';
-      if (hypotheticalAnswer) {
-        expandedQuery = query + "\n\n" + hypotheticalAnswer;
-      }
-    }
-  } catch (e) {
-    logger.warn('HyDE expansion failed, falling back to basic query.', { error: (e as Error).message });
-  }
-
-  const { embedding } = await model.embed(expandedQuery);
+// Basic vector search
+async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 8) {
+  const { embedding } = await model.embed(query);
   const index = pc.Index(PINECONE_INDEX);
 
   if (kbFilter) {
