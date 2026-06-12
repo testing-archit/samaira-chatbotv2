@@ -44,7 +44,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
         SELECT id, 1 - (embedding <=> ${formattedEmbedding}::vector) as similarity,
                row_number() over (order by embedding <=> ${formattedEmbedding}::vector) as rank
         FROM knowledge_chunks
-        WHERE kb = ${kbFilter} AND 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.40
+        WHERE kb = ${kbFilter} AND 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.20
       ),
       fts_search AS (
         SELECT id, ts_rank(content_fts, websearch_to_tsquery('english', ${query})) as fts_rank,
@@ -71,7 +71,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
         SELECT id, 1 - (embedding <=> ${formattedEmbedding}::vector) as similarity,
                row_number() over (order by embedding <=> ${formattedEmbedding}::vector) as rank
         FROM knowledge_chunks
-        WHERE 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.40
+        WHERE 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.20
       ),
       fts_search AS (
         SELECT id, ts_rank(content_fts, websearch_to_tsquery('english', ${query})) as fts_rank,
