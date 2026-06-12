@@ -26,7 +26,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'search_finance_education',
-      description: 'Search the finance education knowledge base. Use this to answer general personal finance questions (e.g. FD vs MF, SIP, NPS, ELSS, insurance).',
+      description: 'Search the finance education knowledge base. Use this to answer general personal finance questions (e.g. FD vs MF, SIP, NPS, ELSS, insurance), as well as questions about Mutual Fund Distributors (MFDs), SEBI regulatory compliance, advertising rules, and financial exams (NISM).',
       parameters: {
         type: 'object',
         properties: { query: { type: 'string', description: 'The personal finance question or topic' } },
