@@ -61,21 +61,21 @@ async function ingestPdf(filePath: string, kbType: string) {
     // Concurrency limit of 10 parallel operations to avoid rate limits
     const limit = pLimit(10);
     const tasks = chunks.map((chunk, index) => limit(async () => {
-      if (!chunk || chunk.length < 50) {
-        skippedChunks++;
-        return; // skip tiny/empty chunks
-      }
-
-      const contentHash = hashContent(chunk);
-      
-      const existing = await sql`SELECT id FROM knowledge_chunks WHERE content_hash = ${contentHash}`;
-      if (existing.length > 0) {
-        skippedChunks++;
-        process.stdout.write('S'); // S for skip
-        return;
-      }
-
       try {
+        if (!chunk || chunk.length < 50) {
+          skippedChunks++;
+          return; // skip tiny/empty chunks
+        }
+
+        const contentHash = hashContent(chunk);
+        
+        const existing = await sql`SELECT id FROM knowledge_chunks WHERE content_hash = ${contentHash}`;
+        if (existing.length > 0) {
+          skippedChunks++;
+          process.stdout.write('S'); // S for skip
+          return;
+        }
+
         const { embedding } = await model.embed(chunk);
         const id = crypto.randomUUID();
         const title = path.basename(filePath);
@@ -89,7 +89,7 @@ async function ingestPdf(filePath: string, kbType: string) {
         process.stdout.write('.'); // dot for success
       } catch (err) {
         process.stdout.write('E'); // E for error
-        console.error(`\nError embedding chunk ${index}:`, err);
+        // Optionally log detailed error to a file if needed, but we swallow here so the rest continues
       }
     }));
 
