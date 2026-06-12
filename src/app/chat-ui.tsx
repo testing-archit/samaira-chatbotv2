@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown, Flag } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
@@ -76,80 +76,144 @@ const getToolLabelDone = (tool: any) => {
   return toolLabelsDone[tool?.toolName] || `⚙️ Used ${tool?.toolName || 'tool'}`;
 };
 
+const REPORT_OPTIONS = [
+  "Inaccurate information",
+  "Unhelpful or irrelevant",
+  "Inappropriate content",
+  "Other"
+];
+
 function MessageFeedback({ messageId, initialRating, initialText }: { messageId: string, initialRating?: number, initialText?: string | null }) {
   const [rating, setRating] = useState(initialRating || 0);
-  const [text, setText] = useState(initialText || '');
-  const [showInput, setShowInput] = useState(false);
-  const [submitted, setSubmitted] = useState(!!initialText);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [customText, setCustomText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setRating(initialRating || 0);
-    setText(initialText || '');
-    setSubmitted(!!initialText);
   }, [initialRating, initialText]);
 
-  const submitFeedback = async (newRating: number, newText: string) => {
+  const submitFeedback = async (newRating: number, fullText: string) => {
     setIsSubmitting(true);
     try {
       await fetch('/api/messages/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messageId, rating: newRating, text: newText })
+        body: JSON.stringify({ messageId, rating: newRating, text: fullText })
       });
+      setRating(newRating);
     } catch (e) { console.error(e); } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleRate = (r: number) => {
-    if (rating === r) return;
-    setRating(r);
-    submitFeedback(r, text);
-    if (!submitted) setShowInput(true);
+  const handleThumbsUp = () => {
+    if (rating === 1) return;
+    submitFeedback(1, '');
   };
 
-  const handleTextSubmit = (e: React.FormEvent) => {
+  const openReportModal = () => {
+    if (rating === -1) return; // Already reported
+    setShowReportModal(true);
+  };
+
+  const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    submitFeedback(rating, text);
-    setSubmitted(true);
-    setShowInput(false);
+    let finalReason = selectedReason;
+    if (selectedReason === 'Other' && customText) {
+      finalReason = `Other: ${customText}`;
+    } else if (customText) {
+      finalReason = selectedReason ? `${selectedReason}. ${customText}` : customText;
+    }
+    submitFeedback(-1, finalReason);
+    setShowReportModal(false);
   };
 
   return (
-    <div className="message-feedback">
-      <div className="feedback-buttons">
-        <button 
-          onClick={() => handleRate(1)} 
-          className={`feedback-btn ${rating === 1 ? 'active' : ''}`}
-          title="Helpful"
-          disabled={isSubmitting}
-        >
-          <ThumbsUp size={14} />
-        </button>
-        <button 
-          onClick={() => handleRate(-1)} 
-          className={`feedback-btn ${rating === -1 ? 'active' : ''}`}
-          title="Not Helpful"
-          disabled={isSubmitting}
-        >
-          <ThumbsDown size={14} />
-        </button>
-      </div>
-      {showInput && !submitted && rating !== 0 && (
-        <form onSubmit={handleTextSubmit} className="feedback-form">
-          <input 
-            value={text} 
-            onChange={(e) => setText(e.target.value)} 
-            placeholder="Optional feedback..."
-            className="feedback-input"
+    <>
+      <div className="message-feedback">
+        <div className="feedback-buttons">
+          <button 
+            onClick={handleThumbsUp} 
+            className={`feedback-btn ${rating === 1 ? 'active' : ''}`}
+            title="Helpful"
             disabled={isSubmitting}
-          />
-          <button type="submit" className="feedback-submit" disabled={isSubmitting || !text.trim()}>Submit</button>
-        </form>
+          >
+            <ThumbsUp size={14} />
+          </button>
+          <button 
+            onClick={openReportModal} 
+            className={`feedback-btn ${rating === -1 ? 'active-report' : ''}`}
+            title="Report an issue"
+            disabled={isSubmitting || rating === -1}
+          >
+            <Flag size={14} />
+            {rating === -1 && <span style={{ marginLeft: 4, fontSize: '0.75rem' }}>Reported</span>}
+          </button>
+        </div>
+      </div>
+
+      {showReportModal && (
+        <div className="modal-overlay">
+          <div className="modal-content report-modal">
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Report an issue</h3>
+              <button type="button" className="close-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => setShowReportModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ marginTop: '0.5rem', marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              What went wrong? Select a reason or tell us below.
+            </p>
+            <form onSubmit={handleReportSubmit}>
+              <div className="report-options" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                {REPORT_OPTIONS.map(opt => (
+                  <label key={opt} className="report-radio" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="reportReason" 
+                      value={opt} 
+                      checked={selectedReason === opt}
+                      onChange={(e) => setSelectedReason(e.target.value)}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
+              
+              <textarea 
+                className="report-textarea" 
+                placeholder="Additional details (optional)..."
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                rows={3}
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text)', resize: 'vertical' }}
+              />
+
+              <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setShowReportModal(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-primary" 
+                  style={{ backgroundColor: 'var(--error, #ef4444)', borderColor: 'var(--error, #ef4444)' }}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : 'Submit Report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
-    </div>
+    </>
   );
 }
 

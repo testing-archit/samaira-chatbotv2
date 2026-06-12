@@ -1354,3 +1354,6 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.active-report {
+  color: var(--error, #ef4444);
+}
