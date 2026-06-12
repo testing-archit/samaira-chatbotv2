@@ -6,6 +6,7 @@ export default async function LoginPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const error = searchParams?.error as string | undefined;
+  const isSignUp = searchParams?.mode === 'signup';
 
   return (
     <div className="login-wrapper">
@@ -24,8 +25,10 @@ export default async function LoginPage(props: {
 
         <div className="login-body">
           <div className="login-title-block">
-            <h1 className="login-title">Welcome back</h1>
-            <p className="login-subtitle">Sign in to your family wealth dashboard</p>
+            <h1 className="login-title">{isSignUp ? 'Create an account' : 'Welcome back'}</h1>
+            <p className="login-subtitle">
+              {isSignUp ? 'Join Octaraa to secure your family\'s financial future' : 'Sign in to your family wealth dashboard'}
+            </p>
           </div>
 
           <form className="login-form">
@@ -60,11 +63,15 @@ export default async function LoginPage(props: {
               />
             </div>
 
-            <SubmitButtons />
+            <SubmitButtons isSignUp={isSignUp} />
           </form>
 
           <p className="login-footer-note">
-            New here? Hit <strong>Sign up</strong> — no verification needed.
+            {isSignUp ? (
+              <>Already have an account? <a href="/login"><strong>Log in</strong></a></>
+            ) : (
+              <>New here? <a href="/login?mode=signup"><strong>Sign up</strong></a> — no verification needed.</>
+            )}
           </p>
         </div>
       </div>

@@ -3,40 +3,29 @@
 import { useFormStatus } from 'react-dom';
 import { login, signup } from './actions';
 import { Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
 
-export function SubmitButtons() {
+export function SubmitButtons({ isSignUp }: { isSignUp?: boolean }) {
   const { pending } = useFormStatus();
-  const [activeAction, setActiveAction] = useState<'login' | 'signup' | null>(null);
-
-  // Reset when the form is done submitting
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (!pending) setActiveAction(null);
-  }, [pending]);
 
   return (
     <div className="login-actions">
-      <button
-        formAction={login}
-        className="btn-primary"
-        disabled={pending}
-        onClick={() => setActiveAction('login')}
-      >
-        {pending && activeAction === 'login'
-          ? <><Loader2 size={16} className="spinning btn-icon" /> Logging in...</>
-          : 'Log in'}
-      </button>
-      <button
-        formAction={signup}
-        className="btn-secondary"
-        disabled={pending}
-        onClick={() => setActiveAction('signup')}
-      >
-        {pending && activeAction === 'signup'
-          ? <><Loader2 size={16} className="spinning btn-icon" /> Signing up...</>
-          : 'Sign up'}
-      </button>
+      {isSignUp ? (
+        <button
+          formAction={signup}
+          className="btn-primary"
+          disabled={pending}
+        >
+          {pending ? <><Loader2 size={16} className="spinning btn-icon" /> Signing up...</> : 'Sign up'}
+        </button>
+      ) : (
+        <button
+          formAction={login}
+          className="btn-primary"
+          disabled={pending}
+        >
+          {pending ? <><Loader2 size={16} className="spinning btn-icon" /> Logging in...</> : 'Log in'}
+        </button>
+      )}
     </div>
   );
 }
