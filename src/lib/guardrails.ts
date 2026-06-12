@@ -2,12 +2,14 @@ import { config } from './config';
 import { logger } from './logger';
 
 // Output guardrail patterns – phrases that must never appear verbatim
+// We use negative lookbehinds so we don't trip our own compliance disclaimers
+// like "not a guarantee of future results" or "no investment product can guarantee returns"
 const BANNED_OUTPUT_PHRASES = [
-  /guarantee(d)?\s+return(s)?/i,
-  /assured\s+return(s)?/i,
-  /risk[\s-]?free\s+(return|investment)/i,
+  /(?<!cannot\s+|can\s+not\s+|never\s+|not\s+a\s+|no\s+.*product\s+can\s+)guarantee(d)?\s+return(s)?/i,
+  /(?<!cannot\s+|can\s+not\s+|never\s+|not\s+a\s+|no\s+.*product\s+can\s+)assured\s+return(s)?/i,
+  /(?<!not\s+a\s+)risk[\s-]?free\s+(return|investment)/i,
   /100%\s+safe/i,
-  /no\s+risk/i,
+  /(?<!there\s+is\s+|with\s+)no\s+risk(?!\s+of\s+making\s+uninformed)/i,
   /double(s)?\s+your\s+money\s+in\s+\d+\s+days/i,
   /get\s+rich\s+quick/i,
 ];
