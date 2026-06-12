@@ -5,6 +5,10 @@ import { generateStrategy } from '../strategy';
 import { model } from '../model';
 import { config } from '../config';
 import { logger } from '../logger';
+import { Pinecone } from '@pinecone-database/pinecone';
+
+const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
+const PINECONE_INDEX = 'octaraa-kb';
 
 // Vector search with HyDE (Hypothetical Document Embeddings)
 async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 3) {
@@ -36,61 +40,38 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
   }
 
   const { embedding } = await model.embed(expandedQuery);
-  const formattedEmbedding = `[${embedding.join(',')}]`;
+  const index = pc.Index(PINECONE_INDEX);
 
   if (kbFilter) {
-    const results = await sql`
-      WITH vector_search AS (
-        SELECT id, 1 - (embedding <=> ${formattedEmbedding}::vector) as similarity,
-               row_number() over (order by embedding <=> ${formattedEmbedding}::vector) as rank
-        FROM knowledge_chunks
-        WHERE kb = ${kbFilter} AND 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.20
-      ),
-      fts_search AS (
-        SELECT id, ts_rank(content_fts, websearch_to_tsquery('english', ${query})) as fts_rank,
-               row_number() over (order by ts_rank(content_fts, websearch_to_tsquery('english', ${query})) desc) as rank
-        FROM knowledge_chunks
-        WHERE kb = ${kbFilter} AND content_fts @@ websearch_to_tsquery('english', ${query})
-      )
-      SELECT
-        kc.content,
-        coalesce(vs.similarity, 0) as similarity,
-        coalesce(fs.fts_rank, 0) as fts_rank,
-        coalesce(1.0 / (60 + vs.rank), 0.0) + coalesce(1.0 / (60 + fs.rank), 0.0) as rrf_score
-      FROM knowledge_chunks kc
-      LEFT JOIN vector_search vs ON kc.id = vs.id
-      LEFT JOIN fts_search fs ON kc.id = fs.id
-      WHERE (vs.id IS NOT NULL OR fs.id IS NOT NULL)
-      ORDER BY rrf_score DESC
-      LIMIT ${limit}
-    `;
+    const queryResponse = await index.query({
+      vector: embedding,
+      topK: limit,
+      includeMetadata: true,
+      filter: { kb: kbFilter }
+    });
+
+    const results = queryResponse.matches.map(match => ({
+      content: match.metadata?.content as string,
+      similarity: match.score || 0,
+      fts_rank: 0,
+      rrf_score: match.score || 0
+    })).filter(r => r.similarity > 0.20);
+    
     return results;
   } else {
-    const results = await sql`
-      WITH vector_search AS (
-        SELECT id, 1 - (embedding <=> ${formattedEmbedding}::vector) as similarity,
-               row_number() over (order by embedding <=> ${formattedEmbedding}::vector) as rank
-        FROM knowledge_chunks
-        WHERE 1 - (embedding <=> ${formattedEmbedding}::vector) > 0.20
-      ),
-      fts_search AS (
-        SELECT id, ts_rank(content_fts, websearch_to_tsquery('english', ${query})) as fts_rank,
-               row_number() over (order by ts_rank(content_fts, websearch_to_tsquery('english', ${query})) desc) as rank
-        FROM knowledge_chunks
-        WHERE content_fts @@ websearch_to_tsquery('english', ${query})
-      )
-      SELECT
-        kc.content,
-        coalesce(vs.similarity, 0) as similarity,
-        coalesce(fs.fts_rank, 0) as fts_rank,
-        coalesce(1.0 / (60 + vs.rank), 0.0) + coalesce(1.0 / (60 + fs.rank), 0.0) as rrf_score
-      FROM knowledge_chunks kc
-      LEFT JOIN vector_search vs ON kc.id = vs.id
-      LEFT JOIN fts_search fs ON kc.id = fs.id
-      WHERE (vs.id IS NOT NULL OR fs.id IS NOT NULL)
-      ORDER BY rrf_score DESC
-      LIMIT ${limit}
-    `;
+    const queryResponse = await index.query({
+      vector: embedding,
+      topK: limit,
+      includeMetadata: true
+    });
+
+    const results = queryResponse.matches.map(match => ({
+      content: match.metadata?.content as string,
+      similarity: match.score || 0,
+      fts_rank: 0,
+      rrf_score: match.score || 0
+    })).filter(r => r.similarity > 0.20);
+    
     return results;
   }
 }
