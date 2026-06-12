@@ -54,6 +54,8 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,16 +102,17 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
 
   const handleDeleteChat = async () => {
     const { sessionId } = getProfileSessionId();
-    if (!confirm(`Are you sure you want to permanently delete all messages for ${profile.name}?`)) return;
-    
-    // Optimistically clear UI
-    setMessages([]);
-    setInput('');
+    setIsDeleting(true);
     
     try {
       await fetch(`/api/messages?session_id=${sessionId}`, { method: 'DELETE' });
+      setMessages([]);
+      setInput('');
+      setShowDeleteModal(false);
     } catch (e) {
       console.error('Failed to clear chat', e);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -255,7 +258,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
             <p>Your Family Wealth Assistant by Octaraa</p>
           </div>
           <button
-            onClick={handleDeleteChat}
+            onClick={() => setShowDeleteModal(true)}
             className="reset-btn"
             title="Delete conversation"
             aria-label="Delete conversation"
@@ -373,6 +376,35 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
           Samaira provides educational insights only, not financial advice.
         </p>
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Delete Chat History</h3>
+            <p style={{ marginTop: '0.5rem', marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              Are you sure you want to permanently delete all messages for <strong>{profile.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button 
+                className="btn-secondary" 
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-primary" 
+                style={{ backgroundColor: 'var(--error, #ef4444)' }}
+                onClick={handleDeleteChat}
+                disabled={isDeleting}
+              >
+                {isDeleting ? <><Loader2 size={16} className="spinning" /> Deleting...</> : 'Delete Chat'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
