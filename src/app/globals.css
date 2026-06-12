@@ -572,7 +572,7 @@ body {
   width: 100vw;
   align-items: center;
   justify-content: center;
-  background: var(--bg-primary);
+  background: var(--bg-page);
   overflow: hidden;
   font-family: inherit;
 }
@@ -584,12 +584,13 @@ body {
   filter: blur(80px);
   pointer-events: none;
   z-index: 0;
+  opacity: 0.6;
 }
 
 .orb-1 {
   width: 420px;
   height: 420px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--brand-mint) 0%, transparent 70%);
   top: -80px;
   left: -80px;
 }
@@ -597,7 +598,7 @@ body {
 .orb-2 {
   width: 380px;
   height: 380px;
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--brand-mint2) 0%, transparent 70%);
   bottom: -60px;
   right: -60px;
 }
@@ -607,15 +608,10 @@ body {
   z-index: 1;
   width: 100%;
   max-width: 400px;
-  background: rgba(17, 24, 39, 0.8);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: 24px;
-  border: 1px solid rgba(56, 189, 248, 0.15);
-  box-shadow:
-    0 0 0 1px rgba(56, 189, 248, 0.05),
-    0 32px 64px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
   animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   overflow: hidden;
 }
@@ -625,47 +621,43 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px 28px 0;
+  padding: 24px 28px 0;
 }
 
 .login-logo {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: var(--accent-gradient);
+  background: var(--brand-leaf);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
 
 .login-brand-name {
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand-deep);
   letter-spacing: -0.01em;
 }
 
 .login-body {
-  padding: 24px 28px 32px;
+  padding: 20px 28px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
 .login-title-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .login-title {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.02em;
@@ -681,17 +673,17 @@ body {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 
 .input-group label {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: var(--text-secondary);
   letter-spacing: 0.01em;
@@ -699,11 +691,11 @@ body {
 
 .input-group input,
 .input-group select {
-  padding: 11px 14px;
-  background-color: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  font-size: 0.93rem;
+  padding: 10px 14px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
   color: var(--text-primary);
   font-family: inherit;
   transition: all 0.2s ease;
@@ -713,13 +705,12 @@ body {
 
 .input-group input:focus,
 .input-group select:focus {
-  border-color: var(--accent);
-  background-color: rgba(56, 189, 248, 0.05);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+  border-color: var(--brand-leaf);
+  box-shadow: 0 0 0 3px var(--brand-mint);
 }
 
 .input-group input::placeholder {
-  color: rgba(100, 116, 139, 0.6);
+  color: var(--text-tertiary);
 }
 
 .login-actions {
