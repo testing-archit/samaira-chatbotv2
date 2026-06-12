@@ -9,12 +9,52 @@
   --accent-gradient: linear-gradient(135deg, #000B5B 0%, #ff8400 100%);
   --accent-glow: rgba(255, 132, 0, 0.15);
   --accent-color: #ff8400;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-inverse: #ffffff;
+  --header-bg: rgba(255, 255, 255, 0.85);
+  --input-bg: rgba(248, 250, 252, 0.9);
   --border: #e2e8f0;
   --border-light: #f1f5f9;
   --border-color: #e2e8f0;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --color-background-info: #000B5B;
+  --color-text-info: #ffffff;
+  --brand-accent: #ff8400;
+  --brand-blue-glow: rgba(0, 11, 91, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-inverse: #020617;
+    --header-bg: rgba(15, 23, 42, 0.85);
+    --input-bg: rgba(15, 23, 42, 0.9);
+    --border: #334155;
+    --border-light: #475569;
+    --border-color: #334155;
+    
+    /* Brand colors remain consistent, but glows/contrast might adjust */
+    --color-background-info: #3b82f6; /* Lighter blue for dark mode contrast */
+    --color-text-info: #ffffff;
+    --brand-accent: #ff8400; /* Orange remains good in dark mode */
+    --brand-blue-glow: rgba(59, 130, 246, 0.15);
+    --accent-gradient: linear-gradient(135deg, #60a5fa 0%, #ff8400 100%);
+  }
+  
+  body {
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(255, 132, 0, 0.05) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(59, 130, 246, 0.05) 0%, transparent 60%);
+  }
+
+  .welcome-icon {
+    background: linear-gradient(135deg, rgba(255, 132, 0, 0.15), rgba(59, 130, 246, 0.15));
+  }
 }
 
 * {
@@ -53,7 +93,7 @@ body {
 .header {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   flex-shrink: 0;
@@ -215,16 +255,16 @@ body {
 }
 
 .message.user {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: 1px solid var(--border-light);
+  background: var(--color-background-info);
+  color: var(--color-text-info);
+  border: 1px solid var(--color-background-info);
   border-bottom-right-radius: 0.3rem;
 }
 
 .message.ai {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-left: 2px solid var(--accent);
+  border-left: 2px solid var(--brand-accent);
   border-bottom-left-radius: 0.3rem;
   box-shadow: 0 2px 12px rgba(255, 132, 0, 0.06);
 }
@@ -308,7 +348,7 @@ body {
 /* ─── Input ──────────────────────────────────────── */
 .input-area {
   padding: 1rem 1.5rem 1.25rem;
-  background: rgba(248, 250, 252, 0.9);
+  background: var(--input-bg);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -1356,4 +1396,56 @@ body {
 }
 .active-report {
   color: var(--error, #ef4444);
+}
+
+.disclaimer-compact {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border);
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+}
+
+.quick-reply-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1.5rem;
+  padding: 0 1.5rem 1.5rem 1.5rem;
+  align-items: flex-start;
+}
+
+.chip-btn {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-background-info);
+  color: var(--color-background-info);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip-btn:hover {
+  background: var(--brand-blue-glow);
+}
+
+.self-badge {
+  background-color: var(--color-background-info);
+  color: var(--color-text-info);
+  font-size: 11px;
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.profile-item.is-self:not(.active) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+.profile-item.is-self:not(.active):hover {
+  background-color: rgba(0, 0, 0, 0.04);
 }

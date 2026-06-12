@@ -17,18 +17,17 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  toolInvocations: Array<{ toolCallId: string; toolName: string; args: any }>;
+  toolInvocations?: Array<{ toolCallId: string; toolName: string; args: any }>;
   created_at?: string;
   feedbackRating?: number;
   feedbackText?: string | null;
+  requiresDisclaimer?: boolean;
 }
 
 const suggestions = [
-  "Plan for my family 👨‍👩‍👧",
-  "Why Octaraa over Groww?",
-  "SIP vs Lumpsum investing?",
-  "FD vs Mutual Fund?",
-  "How much term insurance do I need?",
+  { label: "FD vs mutual fund", prompt: "Explain FD vs mutual fund for a young family" },
+  { label: "What is the family tree?", prompt: "What is the Family Tree feature?" },
+  { label: "Plan my family goals", prompt: "Help me plan for my family's financial goals" },
 ];
 
 const getToolLabel = (tool: any) => {
@@ -412,6 +411,14 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     return newArr;
                   });
                   aiMessageId = data.data;
+                } else if (data.type === 'requires_disclaimer') {
+                  setMessages(prev => {
+                    const newArr = [...prev];
+                    const last = { ...newArr[newArr.length - 1] };
+                    last.requiresDisclaimer = data.data;
+                    newArr[newArr.length - 1] = last;
+                    return newArr;
+                  });
                 } else if (data.type === 'tool_call') {
                   const targetId = aiMessageId;
                   setMessages((prev) => {
@@ -520,29 +527,39 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
           </div>
         )}
         {messages.length === 0 ? (
-          <div className="welcome-screen">
-            <div className="welcome-illustration-wrapper" style={{ marginBottom: '1rem' }}>
-              <Image src="/welcome-illustration.png" alt="Family Wealth" width={240} height={240} style={{ objectFit: 'contain' }} priority />
+          <div className="message bot-message">
+            <div className="message-avatar">
+              <div className="avatar-icon">
+                <Image src="/samaira-avatar.png" alt="Samaira" width={28} height={28} priority />
+              </div>
             </div>
-            <h2>Welcome to Octaraa</h2>
-            <p>How can I help {profile.name} secure their financial future today?</p>
-            <div className="suggestions">
-              {suggestions.map((text, i) => (
-                <button
-                  key={i}
-                  className="suggestion-btn"
-                  onClick={() =>
-                    append({
-                      id: 'msg_' + Math.random().toString(36).substring(2, 9),
-                      role: 'user',
-                      content: text,
-                      toolInvocations: [],
-                    })
-                  }
-                >
-                  {text}
-                </button>
-              ))}
+            <div className="message-content">
+              <div className="message-header">
+                <strong>Samaira</strong>
+              </div>
+              <div className="markdown-body">
+                <p>Hi! I&apos;m Samaira, your family wealth assistant. What would you like to explore?</p>
+              </div>
+              
+              <div className="quick-reply-chips" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    className="chip-btn"
+                    onClick={() =>
+                      append({
+                        id: 'msg_' + Math.random().toString(36).substring(2, 9),
+                        role: 'user',
+                        content: s.prompt,
+                        toolInvocations: [],
+                      })
+                    }
+                  >
+                    {s.label}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         ) : (
@@ -588,6 +605,11 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     <div className="markdown-body">
                       <MarkdownRenderer content={m.content} />
                     </div>
+                    {m.requiresDisclaimer && (
+                      <div className="disclaimer-compact">
+                        Educational only, not financial advice &middot; connect@octaraa.com
+                      </div>
+                    )}
                     {m.role === 'assistant' && (
                       <MessageFeedback messageId={m.id} initialRating={m.feedbackRating} initialText={m.feedbackText} />
                     )}
@@ -606,27 +628,6 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
               </div>
             </div>
           ))
-        )}
-        
-        {messages.length === 1 && messages[0].role === 'assistant' && (
-          <div className="suggestions" style={{ marginTop: '2rem', paddingBottom: '2rem' }}>
-            {suggestions.map((text, i) => (
-              <button
-                key={i}
-                className="suggestion-btn"
-                onClick={() =>
-                  append({
-                    id: 'msg_' + Math.random().toString(36).substring(2, 9),
-                    role: 'user',
-                    content: text,
-                    toolInvocations: [],
-                  })
-                }
-              >
-                {text}
-              </button>
-            ))}
-          </div>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -728,14 +729,14 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
           {profiles.map(p => (
             <div 
               key={p.id} 
-              className={`profile-item ${activeProfile?.id === p.id ? 'active' : ''}`}
+              className={`profile-item ${activeProfile?.id === p.id ? 'active' : ''} ${p.relation === 'self' ? 'is-self' : ''}`}
               onClick={() => handleProfileSwitch(p)}
             >
               <div className="profile-info">
                 <span className="profile-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   {p.name}
                   {p.relation === 'self' && (
-                    <span style={{ fontSize: '0.65rem', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '10px', fontWeight: 'bold' }}>YOU</span>
+                    <span className="self-badge">you</span>
                   )}
                 </span>
                 <span className="profile-relation">{p.relation}</span>

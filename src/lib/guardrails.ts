@@ -46,15 +46,20 @@ export const guardrails = {
     return input.trim();
   },
 
-  filterOutput(output: string): string {
-    if (!output) return output;
+  filterOutput(output: string): { text: string; requiresDisclaimer: boolean } {
+    if (!output) return { text: output, requiresDisclaimer: false };
     let sanitized = output;
+    let requiresDisclaimer = false;
+
+    // In-place rewrite for FD/guaranteed phrasing to avoid contradiction
+    sanitized = sanitized.replace(/\b(returns\s+are\s+guaranteed|guarantee(d)?\s+return(s)?)\b/gi, 'the interest rate is fixed by the bank for the tenure');
+    sanitized = sanitized.replace(/\b(nearly\s+)?risk[\s-]?free(\s+investment)?\b/gi, 'considered low-risk relative to market-linked instruments');
 
     for (const regex of BANNED_OUTPUT_PHRASES) {
       if (regex.test(sanitized)) {
         logger.warn('Guardrail trip: banned phrase in output', { match: sanitized.match(regex)?.[0] });
         sanitized = 'All investments carry market risk and past performance is not a guarantee of future results. I can share educational strategies, but cannot guarantee any returns. Please consult a registered financial advisor for specific advice.';
-        return sanitized;
+        return { text: sanitized, requiresDisclaimer: true };
       }
     }
 
@@ -63,23 +68,23 @@ export const guardrails = {
         logger.warn('Guardrail trip: specific recommendation in educational mode');
         sanitized =
           'I can only provide educational, category-level strategies. For specific scheme or stock recommendations, please connect with a SEBI-registered investment advisor.';
-        return sanitized;
+        return { text: sanitized, requiresDisclaimer: true };
       }
 
-      const disclaimerText = '\n\n*Disclaimer: I am Samaira, an AI assistant providing educational information only. This is not financial advice. Please speak to an Octaraa expert for personalized guidance.*';
-      const contactText = '\n\n*Contact: connect@octaraa.com | +91 9667708843*';
-
-      // Only attach full disclaimer for substantive answers (>200 chars)
+      // Only flag for full disclaimer on substantive answers (>200 chars)
       if (sanitized.length > 200) {
-        if (!sanitized.includes('Disclaimer: I am Samaira')) {
-          sanitized += disclaimerText;
-        }
-        if (!sanitized.includes('connect@octaraa.com')) {
-          sanitized += contactText;
-        }
+        requiresDisclaimer = true;
       }
     }
 
-    return sanitized;
+    // Strip hallucinated disclaimers if the LLM ignores instructions
+    sanitized = sanitized.replace(/\*?Disclaimer:[\s\S]*?\*?/gi, '').trim();
+    sanitized = sanitized.replace(/\*?Contact:[\s\S]*?\*?/gi, '').trim();
+    sanitized = sanitized.replace(/\*?This is not financial advice[\s\S]*?\*?/gi, '').trim();
+
+    // Strip citation markers like 【{"id":0,"cursor":0,"loc":0}】 or 【1】 that some models emit
+    sanitized = sanitized.replace(/【.*?】/g, '').trim();
+
+    return { text: sanitized, requiresDisclaimer };
   },
 };

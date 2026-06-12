@@ -147,6 +147,10 @@ FORMATTING RULES (MANDATORY):
 - Use line breaks by adding a blank line between paragraphs — NOT <br> tags.
 - DO NOT include any legal or financial disclaimers like "This is not financial advice" or "Consult a professional". The UI already displays this disclaimer automatically.
 
+SPECIFIC CONTENT RULES:
+- GREETINGS: If the user just says hi, hello, or hey, reply with a SHORT, exact greeting: "Hi! I'm Samaira, your family wealth assistant. What would you like to explore?". Do not add anything else.
+- FIXED DEPOSITS (FDs): When describing FDs, use phrasing like "FDs offer a fixed, pre-agreed interest rate set by the bank for the deposit tenure". Never use "guaranteed returns", "guaranteed", or "risk-free" as these violate SEBI rules.
+
 PROFILING WORKFLOW (FOLLOW STRICTLY):
 1. When a user asks for a financial plan or strategy, DO NOT ask for consent. Just ask for: earning members, dependents, monthly income, monthly surplus, financial goals.
 2. As each piece of info is given, call update_profile IMMEDIATELY to persist it.
@@ -315,7 +319,7 @@ export async function POST(req: Request) {
               let finalText = assistantMessage.content || '';
 
               // Apply output guardrails
-              const safeFinalText = guardrails.filterOutput(finalText);
+              const { text: safeFinalText, requiresDisclaimer } = guardrails.filterOutput(finalText);
               if (safeFinalText !== finalText) {
                 logger.warn('Output Guardrail triggered on final text.', { original: finalText, sanitized: safeFinalText });
                 finalText = safeFinalText;
@@ -324,6 +328,10 @@ export async function POST(req: Request) {
               // Generate Assistant Message ID and send it first
               const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
               sendEvent('message_id', aiMessageId);
+              
+              if (requiresDisclaimer) {
+                sendEvent('requires_disclaimer', true);
+              }
 
               // Stream the final text chunk by chunk for a smooth UI experience
               const words = finalText.split(' ');
@@ -348,8 +356,8 @@ export async function POST(req: Request) {
 
               try {
                 await sql`
-                  INSERT INTO messages (id, session_id, role, content, tool_calls)
-                  VALUES (${aiMessageId}, ${session_id}, 'assistant', ${finalText}, ${JSON.stringify(allToolCalls)}::jsonb)
+                  INSERT INTO messages (id, session_id, role, content, tool_calls, requires_disclaimer)
+                  VALUES (${aiMessageId}, ${session_id}, 'assistant', ${finalText}, ${JSON.stringify(allToolCalls)}, ${requiresDisclaimer})
                 `;
               } catch (err: any) {
                 logger.error('Failed to save AI message to DB', { error: err.message });
