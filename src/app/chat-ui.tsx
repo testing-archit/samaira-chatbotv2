@@ -383,6 +383,7 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedRelation, setSelectedRelation] = useState('spouse');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleProfileSwitch = (p: any) => {
     setActiveProfile(p);
@@ -455,7 +456,15 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
           <div className="modal-overlay">
             <div className="modal-content">
               <h3>Add Family Member</h3>
-              <form action={async (fd) => { await addProfile(fd); setShowAddModal(false); }} className="modal-form">
+              <form action={async (fd) => { 
+                setIsSubmitting(true);
+                try {
+                  await addProfile(fd); 
+                  setShowAddModal(false); 
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }} className="modal-form">
                 <div className="input-group">
                   <label>Name</label>
                   <input name="name" required placeholder="e.g. Rahul" />
@@ -484,8 +493,10 @@ export default function ChatUI({ user, profiles }: { user: any, profiles: any[] 
                   </div>
                 )}
                 <div className="modal-actions">
-                  <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
-                  <button type="submit" className="btn-primary">Add Profile</button>
+                  <button type="button" onClick={() => setShowAddModal(false)} className="btn-secondary" disabled={isSubmitting}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? <><Loader2 size={16} className="spinning" /> Adding...</> : 'Add Profile'}
+                  </button>
                 </div>
               </form>
             </div>
