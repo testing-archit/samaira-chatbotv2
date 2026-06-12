@@ -2,10 +2,10 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import postgres from 'postgres';
+import { neon } from '@neondatabase/serverless';
 import { model } from '../src/lib/model';
 
-const sql = postgres(process.env.DATABASE_URL as string, { ssl: 'require' });
+const sql = neon(process.env.DATABASE_URL as string);
 
 function hashContent(content: string) {
   return crypto.createHash('sha256').update(content).digest('hex');
