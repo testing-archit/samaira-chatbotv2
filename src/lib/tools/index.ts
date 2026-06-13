@@ -231,17 +231,21 @@ export function getTools(context: { sessionId: string; profileId: string; userId
       execute: async ({ name, phone, query }: { name?: string; phone: string; query: string }) => {
         logger.info('Tool call: capture_lead', { name, phone, query });
         try {
-          // 1. Append to CSV
-          const leadsFile = path.join(process.cwd(), 'leads.csv');
-          const timestamp = new Date().toISOString();
-          const csvLine = `"${timestamp}","${name}","${phone}","${query.replace(/"/g, '""')}"\n`;
-          
+          // 1. Append to CSV (Gracefully handle read-only environments like Vercel)
           try {
-            await fs.access(leadsFile);
-          } catch {
-            await fs.writeFile(leadsFile, '"Timestamp","Name","Phone","Query"\n');
+            const leadsFile = path.join(process.cwd(), 'leads.csv');
+            const timestamp = new Date().toISOString();
+            const csvLine = `"${timestamp}","${name}","${phone}","${query.replace(/"/g, '""')}"\n`;
+            
+            try {
+              await fs.access(leadsFile);
+            } catch {
+              await fs.writeFile(leadsFile, '"Timestamp","Name","Phone","Query"\n');
+            }
+            await fs.appendFile(leadsFile, csvLine);
+          } catch (fsError: any) {
+            logger.warn('Could not write to local CSV (likely running on Vercel read-only filesystem)', { error: fsError.message });
           }
-          await fs.appendFile(leadsFile, csvLine);
 
           // Fetch additional context
           const messages = await sql`SELECT role, content FROM messages WHERE session_id = ${context.sessionId} ORDER BY created_at ASC LIMIT 10`;
