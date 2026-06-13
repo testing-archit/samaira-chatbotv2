@@ -262,6 +262,11 @@ body {
   border-bottom-right-radius: 0.3rem;
 }
 
+.message.user a {
+  color: var(--color-text-info);
+  text-decoration: underline;
+}
+
 .message.ai {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
