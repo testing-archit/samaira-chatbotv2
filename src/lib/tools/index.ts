@@ -9,7 +9,7 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Resend } from 'resend';
-import PDFDocument from 'pdfkit';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 let pc: Pinecone | null = null;
 function getPineconeClient() {
@@ -418,55 +418,79 @@ ${historyText}`;
 
           const strategy = generateStrategy(profile);
 
-          const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
-            try {
-              const doc = new PDFDocument({ margin: 50 });
-              const buffers: Buffer[] = [];
-              doc.on('data', buffers.push.bind(buffers));
-              doc.on('end', () => resolve(Buffer.concat(buffers)));
+          const pdfDoc = await PDFDocument.create();
+          const page = pdfDoc.addPage();
+          const { width, height } = page.getSize();
+          
+          const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+          const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-              doc.fontSize(24).font('Helvetica-Bold').text(`Octaraa Financial Plan`, { align: 'center' });
-              doc.fontSize(14).font('Helvetica').text(`Prepared for: ${context.profileName}`, { align: 'center' });
-              doc.moveDown(2);
+          let yPos = height - 50;
+          let currentPage = page;
 
-              doc.fontSize(16).font('Helvetica-Bold').text('Profile Summary');
-              doc.fontSize(12).font('Helvetica').moveDown(0.5);
-              doc.text(`Dependents: ${profile.dependents_count || 0}`);
-              doc.text(`Monthly Income: Rs. ${profile.family_monthly_income?.toLocaleString('en-IN') || 0}`);
-              doc.text(`Monthly Surplus: Rs. ${profile.monthly_surplus?.toLocaleString('en-IN') || 0}`);
-              doc.text(`Risk Appetite: ${profile.risk_appetite || 'Not specified'}`);
-              doc.moveDown(2);
-
-              doc.fontSize(16).font('Helvetica-Bold').text('Actionable Strategy');
-              doc.fontSize(12).font('Helvetica').moveDown(0.5);
-
-              if (strategy.issues.length > 0) {
-                doc.font('Helvetica-Bold').text('Areas to Address:');
-                doc.font('Helvetica');
-                strategy.issues.forEach(issue => doc.text(`• ${issue}`));
-                doc.moveDown(1);
-              }
-
-              if (strategy.recommendations.length > 0) {
-                doc.font('Helvetica-Bold').text('Recommendations:');
-                doc.font('Helvetica');
-                strategy.recommendations.forEach(rec => doc.text(`• ${rec}`));
-                doc.moveDown(1);
-              }
-
-              if (strategy.goalStrategies.length > 0) {
-                doc.font('Helvetica-Bold').text('Goal Strategies:');
-                doc.font('Helvetica');
-                strategy.goalStrategies.forEach(g => doc.text(`• ${g}`));
-              }
-
-              doc.end();
-            } catch (e) {
-              reject(e);
+          const checkPage = (requiredSpace: number) => {
+            if (yPos - requiredSpace < 50) {
+              currentPage = pdfDoc.addPage();
+              yPos = height - 50;
             }
-          });
+          };
 
-          const base64Pdf = pdfBuffer.toString('base64');
+          const drawText = (text: string, font: any, size: number, indent: number = 50) => {
+            const words = text.split(' ');
+            let line = '';
+            for (let word of words) {
+              if ((line + word).length > 80) { // basic wrapping
+                checkPage(size + 10);
+                currentPage.drawText(line, { x: indent, y: yPos, size, font, color: rgb(0, 0, 0) });
+                yPos -= (size + 5);
+                line = word + ' ';
+              } else {
+                line += word + ' ';
+              }
+            }
+            if (line.trim().length > 0) {
+                checkPage(size + 10);
+                currentPage.drawText(line.trim(), { x: indent, y: yPos, size, font, color: rgb(0, 0, 0) });
+                yPos -= (size + 5);
+            }
+            yPos -= 5;
+          };
+
+          drawText(`Octaraa Financial Plan`, fontBold, 24);
+          yPos -= 10;
+          drawText(`Prepared for: ${context.profileName}`, fontRegular, 14);
+          yPos -= 30;
+
+          drawText('Profile Summary', fontBold, 16);
+          yPos -= 5;
+          drawText(`Dependents: ${profile.dependents_count || 0}`, fontRegular, 12);
+          drawText(`Monthly Income: Rs. ${profile.family_monthly_income?.toLocaleString('en-IN') || 0}`, fontRegular, 12);
+          drawText(`Monthly Surplus: Rs. ${profile.monthly_surplus?.toLocaleString('en-IN') || 0}`, fontRegular, 12);
+          drawText(`Risk Appetite: ${profile.risk_appetite || 'Not specified'}`, fontRegular, 12);
+          yPos -= 20;
+
+          drawText('Actionable Strategy', fontBold, 16);
+          yPos -= 5;
+
+          if (strategy.issues.length > 0) {
+            drawText('Areas to Address:', fontBold, 12);
+            strategy.issues.forEach(issue => drawText(`• ${issue}`, fontRegular, 12, 70));
+            yPos -= 10;
+          }
+
+          if (strategy.recommendations.length > 0) {
+            drawText('Recommendations:', fontBold, 12);
+            strategy.recommendations.forEach(rec => drawText(`• ${rec}`, fontRegular, 12, 70));
+            yPos -= 10;
+          }
+
+          if (strategy.goalStrategies.length > 0) {
+            drawText('Goal Strategies:', fontBold, 12);
+            strategy.goalStrategies.forEach(g => drawText(`• ${g}`, fontRegular, 12, 70));
+          }
+
+          const pdfBytes = await pdfDoc.save();
+          const base64Pdf = Buffer.from(pdfBytes).toString('base64');
 
           const resend = new Resend(process.env.RESEND_API_KEY);
           const { data, error } = await resend.emails.send({
