@@ -347,6 +347,13 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 
 // ─── Generative UI Chart Component ───
 function CalculatorChart({ args, append }: { args: any, append?: any }) {
+  const initialType = args?.type || 'sip';
+  const [activeCalc, setActiveCalc] = useState(initialType);
+
+  useEffect(() => {
+    setActiveCalc(args?.type || 'sip');
+  }, [args?.type]);
+
   const [params, setParams] = useState({
     principal: args?.principal || 0,
     rate: args?.rate || 0,
@@ -357,13 +364,12 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   });
 
   if (!args || !args.type) return null;
-  const { type } = args;
 
   // We only chart time-series data
   const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost', 'menu'];
-  if (!chartableTypes.includes(type)) return null;
+  if (!chartableTypes.includes(activeCalc)) return null;
 
-  if (type === 'menu') {
+  if (activeCalc === 'menu') {
     const calculators = [
       { id: 'sip', name: 'SIP Calculator', icon: '📈', desc: 'Calculate returns on your systematic monthly investments.' },
       { id: 'lumpsum', name: 'Lumpsum', icon: '💰', desc: 'Estimate potential returns on one-time investments.' },
@@ -395,7 +401,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           {calculators.map(calc => (
             <button 
               key={calc.id}
-              onClick={() => append && append({ id: 'msg_' + Math.random().toString(36).substring(2, 9), role: 'user', content: `open ${calc.name}` })}
+              onClick={() => setActiveCalc(calc.id)}
               style={{ 
                 background: 'var(--bg-primary)', 
                 border: '1px solid var(--border)', 
@@ -433,7 +439,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   const data = [];
   const r = (params.rate / 100);
   
-  if (type === 'sip' || type === 'rd') {
+  if (activeCalc === 'sip' || activeCalc === 'rd') {
     const monthlyRate = r / 12;
     for (let i = 0; i <= params.years; i++) {
       const months = i * 12;
@@ -441,7 +447,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       const futureValue = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
       data.push({ year: i, Invested: Math.round(invested), Value: Math.round(futureValue) });
     }
-  } else if (type === 'step_up_sip') {
+  } else if (activeCalc === 'step_up_sip') {
     const monthlyRate = r / 12;
     let totalInvested = 0;
     let currentMonthlySIP = params.principal;
@@ -455,18 +461,18 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       currentMonthlySIP += currentMonthlySIP * (params.step_up_rate / 100);
       data.push({ year: y, Invested: Math.round(totalInvested), Value: Math.round(futureValue) });
     }
-  } else if (type === 'lumpsum' || type === 'fd') {
+  } else if (activeCalc === 'lumpsum' || activeCalc === 'fd') {
     for (let i = 0; i <= params.years; i++) {
       const futureValue = params.principal * Math.pow(1 + r, i);
       data.push({ year: i, Invested: Math.round(params.principal), Value: Math.round(futureValue) });
     }
-  } else if (type === 'college_cost') {
+  } else if (activeCalc === 'college_cost') {
     const infRate = params.inflation_rate / 100;
     for (let i = 0; i <= params.years; i++) {
       const futureCost = params.principal * Math.pow(1 + infRate, i);
       data.push({ year: i, Cost: Math.round(futureCost) });
     }
-  } else if (type === 'ppf') {
+  } else if (activeCalc === 'ppf') {
     const ppfRate = 0.071;
     let balance = 0;
     let invested = 0;
@@ -476,7 +482,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       balance = (balance + params.principal) * (1 + ppfRate);
       data.push({ year: y, Invested: Math.round(invested), Value: Math.round(balance) });
     }
-  } else if (type === 'ssy') {
+  } else if (activeCalc === 'ssy') {
     const ssyRate = 0.082;
     let balance = 0;
     let invested = 0;
@@ -486,20 +492,18 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       balance = balance * (1 + ssyRate);
       data.push({ year: y, Invested: Math.round(invested), Value: Math.round(balance) });
     }
-  } else if (type === 'swp') {
+  } else if (activeCalc === 'swp') {
     let balance = params.principal;
-    let totalWithdrawn = 0;
     const monthlyRate = r / 12;
     data.push({ year: 0, Balance: Math.round(balance) });
     for (let y = 1; y <= params.years; y++) {
       for (let m = 1; m <= 12; m++) {
         balance = balance * (1 + monthlyRate) - params.withdrawal_amount;
-        if (balance > 0) totalWithdrawn += params.withdrawal_amount;
       }
       data.push({ year: y, Balance: Math.max(0, Math.round(balance)) });
       if (balance <= 0) break;
     }
-  } else if (type === 'emi') {
+  } else if (activeCalc === 'emi') {
     const monthlyRate = r / 12;
     const totalMonths = params.years * 12;
     const emi = monthlyRate > 0 ? params.principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / (Math.pow(1 + monthlyRate, totalMonths) - 1) : params.principal / totalMonths;
@@ -516,20 +520,23 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   }
 
   let title = 'Projection';
-  if (type === 'sip') title = 'SIP Compounding Curve';
-  if (type === 'step_up_sip') title = 'Step-Up SIP Growth';
-  if (type === 'lumpsum' || type === 'fd') title = 'Lumpsum Growth';
-  if (type === 'emi') title = 'EMI Balance Over Time';
-  if (type === 'swp') title = 'SWP Balance Depletion';
-  if (type === 'ppf') title = 'PPF Wealth Creation (15 Yr)';
-  if (type === 'ssy') title = 'SSY Wealth Creation (21 Yr)';
-  if (type === 'college_cost') title = 'Inflation-Adjusted College Cost';
+  if (activeCalc === 'sip') title = 'SIP Compounding Curve';
+  if (activeCalc === 'step_up_sip') title = 'Step-Up SIP Growth';
+  if (activeCalc === 'lumpsum' || activeCalc === 'fd') title = 'Lumpsum Growth';
+  if (activeCalc === 'emi') title = 'EMI Balance Over Time';
+  if (activeCalc === 'swp') title = 'SWP Balance Depletion';
+  if (activeCalc === 'ppf') title = 'PPF Wealth Creation (15 Yr)';
+  if (activeCalc === 'ssy') title = 'SSY Wealth Creation (21 Yr)';
+  if (activeCalc === 'college_cost') title = 'Inflation-Adjusted College Cost';
 
   return (
     <div style={{ width: '100%', marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
-      <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-        {title}
-      </h4>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{title}</h4>
+        {args?.type === 'menu' && (
+          <button onClick={() => setActiveCalc('menu')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>← Back to Menu</button>
+        )}
+      </div>
       <div style={{ height: 250, width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -541,10 +548,10 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               labelFormatter={(label) => `Year ${label}`}
               contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
             />
-            {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
-            {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
-            {(type === 'emi' || type === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
-            {type === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
+            {activeCalc !== 'emi' && activeCalc !== 'swp' && activeCalc !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
+            {activeCalc !== 'emi' && activeCalc !== 'swp' && activeCalc !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
+            {(activeCalc === 'emi' || activeCalc === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
+            {activeCalc === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -560,7 +567,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           />
         </div>
         
-        {type !== 'college_cost' && type !== 'ppf' && type !== 'ssy' && (
+        {activeCalc !== 'college_cost' && activeCalc !== 'ppf' && activeCalc !== 'ssy' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Rate (%)</label>
             <input 
@@ -582,7 +589,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           />
         </div>
 
-        {type === 'step_up_sip' && (
+        {activeCalc === 'step_up_sip' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Step Up (%)</label>
             <input 
@@ -594,7 +601,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           </div>
         )}
 
-        {type === 'swp' && (
+        {activeCalc === 'swp' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Withdrawal (₹)</label>
             <input 
