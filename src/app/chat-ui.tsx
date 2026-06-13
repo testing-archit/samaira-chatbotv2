@@ -8,6 +8,7 @@ import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
 import MarkdownRenderer from './markdown-renderer';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface Message {
   id: string;
@@ -341,6 +342,67 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
         </div>
       )}
     </>
+  );
+}
+
+// ─── Generative UI Chart Component ───
+function CalculatorChart({ args }: { args: any }) {
+  if (!args || !args.type || !args.principal || !args.rate || !args.years) return null;
+  const { type, principal, rate, years } = args;
+
+  const data = [];
+  const r = (rate / 100);
+  
+  if (type === 'sip') {
+    const monthlyRate = r / 12;
+    for (let i = 0; i <= years; i++) {
+      const months = i * 12;
+      const invested = principal * months;
+      const futureValue = monthlyRate > 0 ? principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
+      data.push({ year: i, Invested: Math.round(invested), Value: Math.round(futureValue) });
+    }
+  } else if (type === 'lumpsum') {
+    for (let i = 0; i <= years; i++) {
+      const futureValue = principal * Math.pow(1 + r, i);
+      data.push({ year: i, Invested: Math.round(principal), Value: Math.round(futureValue) });
+    }
+  } else if (type === 'emi') {
+    const monthlyRate = r / 12;
+    const totalMonths = years * 12;
+    const emi = monthlyRate > 0 ? principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / (Math.pow(1 + monthlyRate, totalMonths) - 1) : principal / totalMonths;
+    let balance = principal;
+    data.push({ year: 0, Balance: Math.round(balance) });
+    for (let i = 1; i <= years; i++) {
+      for(let m = 0; m < 12; m++) {
+        const interest = balance * monthlyRate;
+        const pPayment = emi - interest;
+        balance -= pPayment;
+      }
+      data.push({ year: i, Balance: Math.max(0, Math.round(balance)) });
+    }
+  }
+
+  return (
+    <div style={{ width: '100%', height: 250, marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+      <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+        {type === 'sip' ? 'SIP Compounding Curve' : type === 'lumpsum' ? 'Lumpsum Growth' : 'EMI Balance Over Time'}
+      </h4>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+          <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => \`Yr \${val}\`} />
+          <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => \`₹\${(val/100000).toFixed(1)}L\`} />
+          <Tooltip 
+            formatter={(value: number) => \`₹\${value.toLocaleString('en-IN')}\`}
+            labelFormatter={(label) => \`Year \${label}\`}
+            contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
+          />
+          {type !== 'emi' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
+          {type !== 'emi' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
+          {type === 'emi' && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -730,6 +792,12 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     <div className="markdown-body">
                       <MarkdownRenderer content={m.content} />
                     </div>
+                    {m.toolInvocations?.map((tool: any, idx: number) => {
+                      if (tool.toolName === 'financial_calculator') {
+                        return <CalculatorChart key={`chart-${idx}`} args={tool.args} />;
+                      }
+                      return null;
+                    })}
                     {m.requiresDisclaimer && (
                       <div className="disclaimer-compact">
                         Educational only, not financial advice &middot; connect@octaraa.com

@@ -9,6 +9,7 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Resend } from 'resend';
+import PDFDocument from 'pdfkit';
 
 let pc: Pinecone | null = null;
 function getPineconeClient() {
@@ -293,6 +294,95 @@ ${historyText}`;
           return `Error capturing lead: ${error.message}`;
         }
       },
+    },
+
+    export_plan: {
+      description: 'Export and email the user\'s financial plan as a PDF.',
+      parameters: z.object({
+        email: z.string().email().describe('The email address to send the PDF to')
+      }),
+      execute: async ({ email }: { email: string }) => {
+        logger.info('Tool call: export_plan', { email });
+        try {
+          const profile = await getUserProfile(context.profileId);
+          if (!profile || Object.keys(profile).length === 0) {
+            return "Cannot export plan: profile is empty. Please collect their financial details first.";
+          }
+
+          const strategy = generateStrategy(profile);
+
+          const pdfBuffer = await new Promise<Buffer>((resolve, reject) => {
+            try {
+              const doc = new PDFDocument({ margin: 50 });
+              const buffers: Buffer[] = [];
+              doc.on('data', buffers.push.bind(buffers));
+              doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+              doc.fontSize(24).font('Helvetica-Bold').text(`Octaraa Financial Plan`, { align: 'center' });
+              doc.fontSize(14).font('Helvetica').text(`Prepared for: ${context.profileName}`, { align: 'center' });
+              doc.moveDown(2);
+
+              doc.fontSize(16).font('Helvetica-Bold').text('Profile Summary');
+              doc.fontSize(12).font('Helvetica').moveDown(0.5);
+              doc.text(`Dependents: ${profile.dependents_count || 0}`);
+              doc.text(`Monthly Income: Rs. ${profile.family_monthly_income?.toLocaleString('en-IN') || 0}`);
+              doc.text(`Monthly Surplus: Rs. ${profile.monthly_surplus?.toLocaleString('en-IN') || 0}`);
+              doc.text(`Risk Appetite: ${profile.risk_appetite || 'Not specified'}`);
+              doc.moveDown(2);
+
+              doc.fontSize(16).font('Helvetica-Bold').text('Actionable Strategy');
+              doc.fontSize(12).font('Helvetica').moveDown(0.5);
+
+              if (strategy.issues.length > 0) {
+                doc.font('Helvetica-Bold').text('Areas to Address:');
+                doc.font('Helvetica');
+                strategy.issues.forEach(issue => doc.text(`• ${issue}`));
+                doc.moveDown(1);
+              }
+
+              if (strategy.recommendations.length > 0) {
+                doc.font('Helvetica-Bold').text('Recommendations:');
+                doc.font('Helvetica');
+                strategy.recommendations.forEach(rec => doc.text(`• ${rec}`));
+                doc.moveDown(1);
+              }
+
+              if (strategy.goalStrategies.length > 0) {
+                doc.font('Helvetica-Bold').text('Goal Strategies:');
+                doc.font('Helvetica');
+                strategy.goalStrategies.forEach(g => doc.text(`• ${g}`));
+              }
+
+              doc.end();
+            } catch (e) {
+              reject(e);
+            }
+          });
+
+          const base64Pdf = pdfBuffer.toString('base64');
+
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const { data, error } = await resend.emails.send({
+            from: 'Octaraa Assistant <onboarding@resend.dev>',
+            to: email,
+            subject: `Your Octaraa Financial Plan - ${context.profileName}`,
+            text: `Hi there,\n\nPlease find attached the personalized financial plan for ${context.profileName}.\n\nBest,\nSamaira (Octaraa Wealth Assistant)`,
+            attachments: [
+              {
+                filename: `Octaraa_Plan_${context.profileName.replace(/\s+/g, '_')}.pdf`,
+                content: base64Pdf,
+              },
+            ],
+          });
+
+          if (error) throw new Error(error.message);
+
+          return `Successfully generated the PDF plan and emailed it to ${email}.`;
+        } catch (err: any) {
+          logger.error('Failed to export plan', { error: err.message });
+          return `Failed to export plan: ${err.message}`;
+        }
+      }
     }
   };
 }
