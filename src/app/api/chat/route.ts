@@ -195,8 +195,9 @@ async function callGemini(messages: any[], stream: boolean) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemma-4-31b-it:free',
+      model: 'openai/gpt-oss-20b:free',
       models: [
+        'openai/gpt-oss-20b:free',
         'google/gemma-4-31b-it:free',
       ],
       route: 'fallback',

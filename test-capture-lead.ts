@@ -1,13 +1,16 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
+if (process.env.DATABASE_URL?.startsWith('"')) {
+  process.env.DATABASE_URL = process.env.DATABASE_URL.replace(/^"|"$/g, '');
+}
 import { getTools } from './src/lib/tools/index.js';
 
 async function main() {
   console.log('Testing capture_lead tool...');
   const tools = getTools({
-    sessionId: 'test-session',
-    profileId: 'test-profile',
-    userId: 'test-user',
+    sessionId: '00000000-0000-0000-0000-000000000000',
+    profileId: '00000000-0000-0000-0000-000000000001',
+    userId: '00000000-0000-0000-0000-000000000002',
     profileName: 'Archit Test',
     profileRelation: 'Self',
   });
