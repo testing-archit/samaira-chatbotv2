@@ -6,6 +6,9 @@ import { model } from '../model';
 import { config } from '../config';
 import { logger } from '../logger';
 import { Pinecone } from '@pinecone-database/pinecone';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { Resend } from 'resend';
 
 let pc: Pinecone | null = null;
 function getPineconeClient() {
@@ -60,7 +63,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
 export function getTools(sessionId: string, profileId: string) {
   return {
     search_octaraa_knowledge: {
-      description: 'Search the Octaraa product knowledge base. Use this to answer questions about Octaraa features, FAQs, financial planning blogs, psychology of investing, or anything about the Octaraa platform.',
+      description: 'Use this tool to find ANY information about Octaraa, including its platform features, policies, headquarters, location, founders, contact details, data fiduciary info, FAQs, family wealth tools, or financial planning blogs.',
       parameters: z.object({
         query: z.string().describe('The search query about Octaraa features, FAQs, or blogs'),
       }),
@@ -70,7 +73,7 @@ export function getTools(sessionId: string, profileId: string) {
         if (results.length === 0) return "I am sorry, but I do not have that specific information about Octaraa based on the website.";
         
         const facts = results.map((r: any) => r.content).join('\n\n');
-        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer, say 'I could not find this information in the Octaraa knowledge base.' Use markdown formatting.`;
+        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer, say 'I could not find this information in the Octaraa knowledge base.'\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation or ask about their financial goals. Use markdown formatting.`;
         return await model.agentCall(systemPrompt, query);
       },
     },
@@ -87,7 +90,7 @@ export function getTools(sessionId: string, profileId: string) {
         const results = await vectorSearch('knowledge_chunks', query, null);
         const facts = results.length > 0 ? results.map((r: any) => r.content).join('\n\n') : 'No specific facts found in DB.';
         
-        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.`;
+        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation. For example, you can ask if they want to calculate their SIP returns or set a new financial goal.`;
         return await model.agentCall(systemPrompt, query);
       },
     },
@@ -107,7 +110,7 @@ export function getTools(sessionId: string, profileId: string) {
         if (results.length === 0) return "I couldn't find specific facts for this competitor, but Octaraa focuses on holistic family-wealth planning.";
         const facts = results.map((r: any) => `Dimension: ${r.dimension}\nOctaraa Advantage: ${r.octaraa_advantage}\n(As of: ${r.as_of})`).join('\n\n');
         
-        const systemPrompt = `You are the Competitor Analyst Agent. Use these facts strictly:\n\n${facts}\n\nDo not lie or invent. Frame the comparison favorably for Octaraa's Family Tree and Goal-Based Planning. Make Octaraa sound like the preferred holistic choice. Include the 'As of' date. Provide a clean, short markdown response.`;
+        const systemPrompt = `You are the Competitor Analyst Agent. Use these facts strictly:\n\n${facts}\n\nDo not lie or invent. Frame the comparison favorably for Octaraa's Family Tree and Goal-Based Planning. Make Octaraa sound like the preferred holistic choice. Include the 'As of' date. Provide a clean, short markdown response.\n\nCRITICAL: ALWAYS end your response with a friendly follow-up question inviting them to try setting up their Family Tree or planning a goal with Octaraa.`;
         return await model.agentCall(systemPrompt, `Compare Octaraa to ${competitor}`);
       },
     },
@@ -214,6 +217,51 @@ export function getTools(sessionId: string, profileId: string) {
           const totalPayment = emi * n;
           const totalInterest = totalPayment - principal;
           return `EMI Calculation Result:\nMonthly EMI: ₹${Math.round(emi).toLocaleString('en-IN')}\nPrincipal Amount: ₹${Math.round(principal).toLocaleString('en-IN')}\nTotal Interest: ₹${Math.round(totalInterest).toLocaleString('en-IN')}\nTotal Payment: ₹${Math.round(totalPayment).toLocaleString('en-IN')}`;
+        }
+      },
+    },
+
+    capture_lead: {
+      description: 'Capture contact details and query for callback or unresolved queries.',
+      parameters: z.object({
+        name: z.string().optional(),
+        phone: z.string(),
+        query: z.string()
+      }),
+      execute: async ({ name, phone, query }: { name?: string; phone: string; query: string }) => {
+        logger.info('Tool call: capture_lead', { name, phone, query });
+        try {
+          // 1. Append to CSV
+          const leadsFile = path.join(process.cwd(), 'leads.csv');
+          const timestamp = new Date().toISOString();
+          const csvLine = `"${timestamp}","${name || ''}","${phone}","${query.replace(/"/g, '""')}"\n`;
+          
+          try {
+            await fs.access(leadsFile);
+          } catch {
+            await fs.writeFile(leadsFile, '"Timestamp","Name","Phone","Query"\n');
+          }
+          await fs.appendFile(leadsFile, csvLine);
+
+          // 2. Send email via Resend
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const { data, error } = await resend.emails.send({
+            from: 'Samaira Chatbot <onboarding@resend.dev>',
+            to: "pinewoodarchit@gmail.com",
+            subject: "New Callback Request from Chatbot Lead",
+            text: `New lead captured.\nName: ${name || 'N/A'}\nPhone: ${phone}\nQuery: ${query}`,
+          });
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          logger.info('Email sent via Resend: %s', data?.id);
+
+          return "Successfully captured lead. The marketing team has been notified and the details are saved.";
+        } catch (error: any) {
+          logger.error('Failed to capture lead', { error: error.message });
+          return `Error capturing lead: ${error.message}`;
         }
       },
     }

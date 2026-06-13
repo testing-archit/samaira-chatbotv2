@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown, Flag } from 'lucide-react';
+import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Trash, Users, Menu, X, ThumbsUp, ThumbsDown, Flag, Star } from 'lucide-react';
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
@@ -81,10 +81,23 @@ const REPORT_OPTIONS = [
   "Other"
 ];
 
+const POSITIVE_TAGS = [
+  "Accurate",
+  "Helpful",
+  "Fast",
+  "Friendly",
+  "Easy to understand"
+];
+
 function MessageFeedback({ messageId, initialRating, initialText }: { messageId: string, initialRating?: number, initialText?: string | null }) {
   const [rating, setRating] = useState(initialRating || 0);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState<string>('');
+  
+  const [showPositiveModal, setShowPositiveModal] = useState(false);
+  const [positiveRating, setPositiveRating] = useState<number>(5);
+  const [selectedPositiveTags, setSelectedPositiveTags] = useState<string[]>([]);
+  
   const [customText, setCustomText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -102,8 +115,8 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
         body: JSON.stringify({ messageId, rating: newRating, text: fullText })
       });
       setRating(newRating);
-      if (newRating === 1) {
-        setSuccessMessage("We're glad you're enjoying using the service!");
+      if (newRating > 0) {
+        setSuccessMessage("Thanks for the feedback!");
       } else if (newRating === -1) {
         setSuccessMessage("Thanks for the feedback, we will investigate this.");
       }
@@ -114,8 +127,8 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
   };
 
   const handleThumbsUp = () => {
-    if (rating === 1) return;
-    submitFeedback(1, '');
+    if (rating > 0) return; // Already gave positive feedback
+    setShowPositiveModal(true);
   };
 
   const openReportModal = () => {
@@ -133,6 +146,18 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
     }
     submitFeedback(-1, finalReason);
     setShowReportModal(false);
+    setCustomText('');
+  };
+
+  const handlePositiveSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    let finalReason = selectedPositiveTags.length > 0 ? `Liked: ${selectedPositiveTags.join(', ')}` : '';
+    if (customText) {
+      finalReason = finalReason ? `${finalReason}. ${customText}` : customText;
+    }
+    submitFeedback(positiveRating, finalReason);
+    setShowPositiveModal(false);
+    setCustomText('');
   };
 
   return (
@@ -141,9 +166,9 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
         <div className="feedback-buttons">
           <button 
             onClick={handleThumbsUp} 
-            className={`feedback-btn ${rating === 1 ? 'active' : ''}`}
+            className={`feedback-btn ${rating > 0 ? 'active' : ''}`}
             title="Helpful"
-            disabled={isSubmitting}
+            disabled={isSubmitting || rating > 0}
           >
             <ThumbsUp size={14} />
           </button>
@@ -217,6 +242,98 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : 'Submit Report'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPositiveModal && (
+        <div className="modal-overlay">
+          <div className="modal-content positive-modal" style={{ maxWidth: '400px' }}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3>Rate this response</h3>
+              <button type="button" className="close-btn" style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => setShowPositiveModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handlePositiveSubmit}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', margin: '1.5rem 0' }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setPositiveRating(star)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: star <= positiveRating ? '#eab308' : 'var(--border)'
+                    }}
+                  >
+                    <Star size={32} fill={star <= positiveRating ? '#eab308' : 'none'} />
+                  </button>
+                ))}
+              </div>
+
+              <p style={{ marginBottom: '0.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                What did you like? (Optional)
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                {POSITIVE_TAGS.map(tag => {
+                  const isSelected = selectedPositiveTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedPositiveTags(prev => prev.filter(t => t !== tag));
+                        } else {
+                          setSelectedPositiveTags(prev => [...prev, tag]);
+                        }
+                      }}
+                      style={{
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '20px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        background: isSelected ? 'var(--text-primary)' : 'transparent',
+                        color: isSelected ? 'var(--bg-primary)' : 'var(--text-primary)',
+                        border: `1px solid ${isSelected ? 'var(--text-primary)' : 'var(--border)'}`,
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <textarea 
+                className="report-textarea" 
+                placeholder="Tell us more (optional)..."
+                value={customText}
+                onChange={(e) => setCustomText(e.target.value)}
+                rows={3}
+                style={{ width: '100%', background: 'var(--bg)', border: '1px solid var(--border)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text)', resize: 'vertical' }}
+              />
+
+              <div className="modal-actions" style={{ marginTop: '1rem' }}>
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setShowPositiveModal(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-primary" 
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <><Loader2 size={16} className="spinning" /> Submitting...</> : 'Submit Feedback'}
                 </button>
               </div>
             </form>
