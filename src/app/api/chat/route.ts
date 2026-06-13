@@ -151,7 +151,7 @@ ROUTING RULES (MANDATORY):
   2. If it is about an AMC, provide a list of the top 5 AMCs in India.
   3. Politely ask if they would like to leave their contact details (phone number and query) so an Octaraa representative or wealth expert can call them back to help with their query.
   4. If they provide their contact details, call 'capture_lead'.
-- When a user at ANY time explicitly asks for more help, wants to speak to a human, or provides their contact information for a callback, acknowledge them and call 'capture_lead'. You MUST ensure you have their phone and query first.
+- When a user at ANY time explicitly asks for more help, wants to speak to a human, or provides their contact information for a callback, acknowledge them and call 'capture_lead'. You MUST ensure you have their phone and query first. Do NOT ask for their name if you already know it from the context.
 
 SUPERVISOR RULES:
 - IMPORTANT: When you call a tool, that tool returns a FULLY WRITTEN AND SYNTHESIZED RESPONSE.
@@ -246,7 +246,7 @@ export async function POST(req: Request) {
     });
 
     // Inject active profile context into system prompt
-    const contextualSystemPrompt = `${SYSTEM_PROMPT}\n\nCURRENT CONTEXT: You are advising the user about their family member: ${profile_name} (Relation: ${profile_relation}). All financial data you collect or update using tools will be saved to this specific profile. Address them appropriately.`;
+    const contextualSystemPrompt = `${SYSTEM_PROMPT}\n\nCURRENT CONTEXT: You are advising the user about their family member: ${profile_name} (Relation: ${profile_relation}). If Relation is 'self', the user's name is ${profile_name}. All financial data you collect or update using tools will be saved to this specific profile. Address them appropriately.`;
 
     // Build OpenAI-format history with system prompt
     const openaiMessages: any[] = [
