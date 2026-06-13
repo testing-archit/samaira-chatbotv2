@@ -224,11 +224,11 @@ export function getTools(context: { sessionId: string; profileId: string; userId
     capture_lead: {
       description: 'Capture contact details and query for callback or unresolved queries.',
       parameters: z.object({
-        name: z.string(),
+        name: z.string().optional(),
         phone: z.string(),
         query: z.string()
       }),
-      execute: async ({ name, phone, query }: { name: string; phone: string; query: string }) => {
+      execute: async ({ name, phone, query }: { name?: string; phone: string; query: string }) => {
         logger.info('Tool call: capture_lead', { name, phone, query });
         try {
           // 1. Append to CSV
@@ -249,10 +249,12 @@ export function getTools(context: { sessionId: string; profileId: string; userId
           const profile = await getUserProfile(context.profileId);
           const profileText = profile ? JSON.stringify(profile, null, 2) : 'No profile data saved.';
 
+          const resolvedName = name || (context.profileName !== 'Self' ? context.profileName : 'Not Provided');
+
           const emailBody = `New Lead Captured!
 
 --- LEAD DETAILS ---
-Name: ${name}
+Name: ${resolvedName}
 Phone: ${phone}
 Query: ${query}
 

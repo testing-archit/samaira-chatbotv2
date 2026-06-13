@@ -123,11 +123,11 @@ const tools = [
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Name of the user' },
+          name: { type: 'string', description: 'Name of the user (if provided, otherwise leave empty)' },
           phone: { type: 'string', description: 'Phone number of the user' },
           query: { type: 'string', description: 'The specific question or reason they want a callback' }
         },
-        required: ['name', 'phone', 'query']
+        required: ['phone', 'query']
       },
     },
   },
@@ -149,9 +149,9 @@ ROUTING RULES (MANDATORY):
 - When a user asks a finance-related question or about an entity/AMC that you or the system do not know the answer to:
   1. Apologize and state that you don't have that specific information.
   2. If it is about an AMC, provide a list of the top 5 AMCs in India.
-  3. Politely ask if they would like to leave their contact details (you MUST ask for their name, phone number, and query) so an Octaraa representative or wealth expert can call them back to help with their query.
+  3. Politely ask if they would like to leave their contact details (phone number and query) so an Octaraa representative or wealth expert can call them back to help with their query.
   4. If they provide their contact details, call 'capture_lead'.
-- When a user at ANY time explicitly asks for more help, wants to speak to a human, or provides their contact information for a callback, acknowledge them and call 'capture_lead'. You MUST ensure you have their name, phone, and query first.
+- When a user at ANY time explicitly asks for more help, wants to speak to a human, or provides their contact information for a callback, acknowledge them and call 'capture_lead'. You MUST ensure you have their phone and query first.
 
 SUPERVISOR RULES:
 - IMPORTANT: When you call a tool, that tool returns a FULLY WRITTEN AND SYNTHESIZED RESPONSE.
