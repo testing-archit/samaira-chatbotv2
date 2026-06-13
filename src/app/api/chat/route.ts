@@ -176,9 +176,8 @@ async function callGemini(messages: any[], stream: boolean) {
     },
     body: JSON.stringify({
       models: [
-        'meta-llama/llama-3.3-70b-instruct:free',
-        'nousresearch/hermes-3-llama-3.1-405b:free',
-        'openrouter/free'
+        'meta-llama/llama-3.3-70b-instruct',
+        'nousresearch/hermes-3-llama-3.1-405b',
       ],
       route: 'fallback',
       messages,
