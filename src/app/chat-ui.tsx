@@ -347,47 +347,60 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 
 // ─── Generative UI Chart Component ───
 function CalculatorChart({ args }: { args: any }) {
+  const [params, setParams] = useState({
+    principal: args?.principal || 0,
+    rate: args?.rate || 0,
+    years: args?.years || 0,
+    step_up_rate: args?.step_up_rate || 0,
+    withdrawal_amount: args?.withdrawal_amount || 0,
+    inflation_rate: args?.inflation_rate || 0,
+  });
+
   if (!args || !args.type) return null;
-  const { type, principal = 0, rate = 0, years = 0, step_up_rate = 0, withdrawal_amount = 0, inflation_rate = 0 } = args;
+  const { type } = args;
 
   // We only chart time-series data
   const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost'];
   if (!chartableTypes.includes(type)) return null;
 
+  const handleParamChange = (key: string, value: number) => {
+    setParams(prev => ({ ...prev, [key]: value }));
+  };
+
   const data = [];
-  const r = (rate / 100);
+  const r = (params.rate / 100);
   
   if (type === 'sip' || type === 'rd') {
     const monthlyRate = r / 12;
-    for (let i = 0; i <= years; i++) {
+    for (let i = 0; i <= params.years; i++) {
       const months = i * 12;
-      const invested = principal * months;
-      const futureValue = monthlyRate > 0 ? principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
+      const invested = params.principal * months;
+      const futureValue = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
       data.push({ year: i, Invested: Math.round(invested), Value: Math.round(futureValue) });
     }
   } else if (type === 'step_up_sip') {
     const monthlyRate = r / 12;
     let totalInvested = 0;
-    let currentMonthlySIP = principal;
+    let currentMonthlySIP = params.principal;
     let futureValue = 0;
     data.push({ year: 0, Invested: 0, Value: 0 });
-    for (let y = 1; y <= years; y++) {
+    for (let y = 1; y <= params.years; y++) {
       for (let m = 1; m <= 12; m++) {
         totalInvested += currentMonthlySIP;
         futureValue = (futureValue + currentMonthlySIP) * (1 + monthlyRate);
       }
-      currentMonthlySIP += currentMonthlySIP * (step_up_rate / 100);
+      currentMonthlySIP += currentMonthlySIP * (params.step_up_rate / 100);
       data.push({ year: y, Invested: Math.round(totalInvested), Value: Math.round(futureValue) });
     }
   } else if (type === 'lumpsum' || type === 'fd') {
-    for (let i = 0; i <= years; i++) {
-      const futureValue = principal * Math.pow(1 + r, i);
-      data.push({ year: i, Invested: Math.round(principal), Value: Math.round(futureValue) });
+    for (let i = 0; i <= params.years; i++) {
+      const futureValue = params.principal * Math.pow(1 + r, i);
+      data.push({ year: i, Invested: Math.round(params.principal), Value: Math.round(futureValue) });
     }
   } else if (type === 'college_cost') {
-    const infRate = inflation_rate / 100;
-    for (let i = 0; i <= years; i++) {
-      const futureCost = principal * Math.pow(1 + infRate, i);
+    const infRate = params.inflation_rate / 100;
+    for (let i = 0; i <= params.years; i++) {
+      const futureCost = params.principal * Math.pow(1 + infRate, i);
       data.push({ year: i, Cost: Math.round(futureCost) });
     }
   } else if (type === 'ppf') {
@@ -395,9 +408,9 @@ function CalculatorChart({ args }: { args: any }) {
     let balance = 0;
     let invested = 0;
     data.push({ year: 0, Invested: 0, Value: 0 });
-    for (let y = 1; y <= Math.min(years || 15, 15); y++) {
-      invested += principal;
-      balance = (balance + principal) * (1 + ppfRate);
+    for (let y = 1; y <= Math.min(params.years || 15, 15); y++) {
+      invested += params.principal;
+      balance = (balance + params.principal) * (1 + ppfRate);
       data.push({ year: y, Invested: Math.round(invested), Value: Math.round(balance) });
     }
   } else if (type === 'ssy') {
@@ -405,31 +418,31 @@ function CalculatorChart({ args }: { args: any }) {
     let balance = 0;
     let invested = 0;
     data.push({ year: 0, Invested: 0, Value: 0 });
-    for (let y = 1; y <= Math.min(years || 21, 21); y++) {
-      if (y <= 15) { invested += principal; balance += principal; }
+    for (let y = 1; y <= Math.min(params.years || 21, 21); y++) {
+      if (y <= 15) { invested += params.principal; balance += params.principal; }
       balance = balance * (1 + ssyRate);
       data.push({ year: y, Invested: Math.round(invested), Value: Math.round(balance) });
     }
   } else if (type === 'swp') {
-    let balance = principal;
+    let balance = params.principal;
     let totalWithdrawn = 0;
     const monthlyRate = r / 12;
     data.push({ year: 0, Balance: Math.round(balance) });
-    for (let y = 1; y <= years; y++) {
+    for (let y = 1; y <= params.years; y++) {
       for (let m = 1; m <= 12; m++) {
-        balance = balance * (1 + monthlyRate) - withdrawal_amount;
-        if (balance > 0) totalWithdrawn += withdrawal_amount;
+        balance = balance * (1 + monthlyRate) - params.withdrawal_amount;
+        if (balance > 0) totalWithdrawn += params.withdrawal_amount;
       }
       data.push({ year: y, Balance: Math.max(0, Math.round(balance)) });
       if (balance <= 0) break;
     }
   } else if (type === 'emi') {
     const monthlyRate = r / 12;
-    const totalMonths = years * 12;
-    const emi = monthlyRate > 0 ? principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / (Math.pow(1 + monthlyRate, totalMonths) - 1) : principal / totalMonths;
-    let balance = principal;
+    const totalMonths = params.years * 12;
+    const emi = monthlyRate > 0 ? params.principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / (Math.pow(1 + monthlyRate, totalMonths) - 1) : params.principal / totalMonths;
+    let balance = params.principal;
     data.push({ year: 0, Balance: Math.round(balance) });
-    for (let i = 1; i <= years; i++) {
+    for (let i = 1; i <= params.years; i++) {
       for(let m = 0; m < 12; m++) {
         const interest = balance * monthlyRate;
         const pPayment = emi - interest;
@@ -450,26 +463,98 @@ function CalculatorChart({ args }: { args: any }) {
   if (type === 'college_cost') title = 'Inflation-Adjusted College Cost';
 
   return (
-    <div style={{ width: '100%', height: 250, marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+    <div style={{ width: '100%', marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
       <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
         {title}
       </h4>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
-          <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
-          <Tooltip 
-            formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
-            labelFormatter={(label) => `Year ${label}`}
-            contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
+      <div style={{ height: 250, width: '100%' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+            <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
+            <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
+            <Tooltip 
+              formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
+              labelFormatter={(label) => `Year ${label}`}
+              contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
+            />
+            {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
+            {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
+            {(type === 'emi' || type === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
+            {type === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Principal (₹)</label>
+          <input 
+            type="number" 
+            value={params.principal || ''} 
+            onChange={(e) => handleParamChange('principal', Number(e.target.value))}
+            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
           />
-          {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
-          {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
-          {(type === 'emi' || type === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
-          {type === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
-        </LineChart>
-      </ResponsiveContainer>
+        </div>
+        
+        {type !== 'college_cost' && type !== 'ppf' && type !== 'ssy' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Rate (%)</label>
+            <input 
+              type="number" 
+              value={params.rate || ''} 
+              onChange={(e) => handleParamChange('rate', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Years</label>
+          <input 
+            type="number" 
+            value={params.years || ''} 
+            onChange={(e) => handleParamChange('years', Number(e.target.value))}
+            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+          />
+        </div>
+
+        {type === 'step_up_sip' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Step Up (%)</label>
+            <input 
+              type="number" 
+              value={params.step_up_rate || ''} 
+              onChange={(e) => handleParamChange('step_up_rate', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {type === 'swp' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Withdrawal (₹)</label>
+            <input 
+              type="number" 
+              value={params.withdrawal_amount || ''} 
+              onChange={(e) => handleParamChange('withdrawal_amount', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {type === 'college_cost' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Inflation (%)</label>
+            <input 
+              type="number" 
+              value={params.inflation_rate || ''} 
+              onChange={(e) => handleParamChange('inflation_rate', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
