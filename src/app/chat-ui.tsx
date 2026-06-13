@@ -870,16 +870,31 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
     } catch (error) {
       console.error(error);
       setMessages((prev) => {
+        const index = prev.findIndex((m) => m.id === aiMessageId);
+        if (index === -1) return prev;
         const newArr = [...prev];
-        newArr[newArr.length - 1] = {
-          id: aiMessageId,
-          role: 'assistant',
+        newArr[index] = {
+          ...newArr[index],
           content: '⚠️ Sorry, I encountered an error. Please try again.',
           toolInvocations: [],
         };
         return newArr;
       });
     } finally {
+      setMessages((prev) => {
+        const index = prev.findIndex((m) => m.id === aiMessageId);
+        if (index === -1) return prev;
+        const msg = prev[index];
+        if (!msg.content && (!msg.toolInvocations || msg.toolInvocations.length === 0)) {
+           const newArr = [...prev];
+           newArr[index] = {
+             ...msg,
+             content: '⚠️ The response was interrupted. Please try again.',
+           };
+           return newArr;
+        }
+        return prev;
+      });
       setIsLoading(false);
       setTimeout(() => {
         if (isActive) inputRef.current?.focus();
@@ -1016,20 +1031,28 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                   <div className="tool-invocations-list">
                     {m.toolInvocations
                       .filter((tool) => tool.toolName !== 'update_profile' || Object.keys(tool.args || {}).length > 0)
-                      .map((tool, idx) => (
-                      <div key={idx} className={`tool-invocation ${m.content ? 'done' : ''}`}>
-                        {m.content ? (
-                          <Check size={13} strokeWidth={3} />
-                        ) : (
-                          <Loader2 size={13} className="spinning" />
-                        )}
-                        <span>
-                          {m.content 
-                            ? getToolLabelDone(tool)
-                            : getToolLabel(tool)}
-                        </span>
-                      </div>
-                    ))}
+                      .map((tool, idx) => {
+                        const isToolDone = m.content || (!isLoading && m.id !== messages[messages.length - 1]?.id) || (!isLoading && m.id === messages[messages.length - 1]?.id);
+                        const isError = !m.content && !isLoading;
+                        
+                        return (
+                          <div key={idx} className={`tool-invocation ${isToolDone ? 'done' : ''}`}>
+                            {isError ? (
+                              <X size={13} strokeWidth={3} color="red" />
+                            ) : isToolDone ? (
+                              <Check size={13} strokeWidth={3} />
+                            ) : (
+                              <Loader2 size={13} className="spinning" />
+                            )}
+                            <span style={isError ? { color: 'red' } : {}}>
+                              {isToolDone 
+                                ? getToolLabelDone(tool)
+                                : getToolLabel(tool)}
+                              {isError && ' (Failed)'}
+                            </span>
+                          </div>
+                        );
+                    })}
                   </div>
                 )}
 
