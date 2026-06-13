@@ -106,12 +106,18 @@ const tools = [
       parameters: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['sip', 'lumpsum', 'emi'], description: 'Type of calculation' },
-          principal: { type: 'number', description: 'Monthly SIP amount, lumpsum investment amount, or loan principal amount' },
+          type: { type: 'string', enum: ['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax'], description: 'Type of calculation' },
+          principal: { type: 'number', description: 'Monthly amount, lumpsum amount, loan principal, or current cost' },
           rate: { type: 'number', description: 'Annual interest rate percentage (e.g. 12 for 12%)' },
-          years: { type: 'number', description: 'Time horizon in years' }
+          years: { type: 'number', description: 'Time horizon in years' },
+          inflation_rate: { type: 'number', description: 'Inflation rate percentage' },
+          step_up_rate: { type: 'number', description: 'Annual increase percentage for SIPs' },
+          target_amount: { type: 'number', description: 'Target corpus amount' },
+          withdrawal_amount: { type: 'number', description: 'Monthly withdrawal amount for SWP' },
+          delay_years: { type: 'number', description: 'Years of delay for cost_of_delay' },
+          final_amount: { type: 'number', description: 'Final corpus for CAGR' }
         },
-        required: ['type', 'principal', 'rate', 'years']
+        required: ['type']
       },
     },
   },
@@ -159,7 +165,7 @@ ROUTING RULES (MANDATORY):
 - When a user asks about Octaraa (including its location, headquarters, founders, details, features, policy, FAQ, financial planning blogs, psychology of investing, or any platform-specific topics), call 'search_octaraa_knowledge'.
 - When a user asks a general personal finance question (e.g. FD vs MF, SIP basics), MFD query, or SEBI compliance query, call 'search_finance_education'.
 - When a user asks about a competitor, call 'compare_competitor'.
-- When a user asks for a calculation (SIP, EMI, etc.), call 'financial_calculator'.
+- When a user asks for a calculation (SIP, Lumpsum, EMI, Step-Up SIP, SWP, PPF, SSY, Retirement, Income Tax, etc.), call 'financial_calculator'.
 - When a user explicitly asks to export, download, email, or generate a PDF of their financial plan, call 'export_plan'.
 - When a user asks a finance-related question, asks for a product like a home loan, or asks about an entity/AMC that you or the system do not know the answer to:
   1. Do not say "I don't have the ability". Instead, directly state that an Octaraa representative or wealth expert can assist them further with this request.

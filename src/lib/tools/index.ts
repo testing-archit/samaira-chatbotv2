@@ -191,34 +191,141 @@ export function getTools(context: { sessionId: string; profileId: string; userId
     },
 
     financial_calculator: {
-      description: 'Calculate SIP future values, lumpsum compound interest, or EMI payments.',
+      description: 'Calculate mathematical financial projections including SIP, Lumpsum, EMI, Step-Up SIP, SWP, PPF, SSY, CAGR, Retirement, Income Tax, etc.',
       parameters: z.object({
-        type: z.enum(['sip', 'lumpsum', 'emi']).describe('Type of calculation'),
-        principal: z.number().describe('Monthly SIP amount, lumpsum investment amount, or loan principal amount'),
-        rate: z.number().describe('Annual interest rate percentage (e.g. 12 for 12%)'),
-        years: z.number().describe('Time horizon in years')
+        type: z.enum(['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax']).describe('Type of calculation'),
+        principal: z.number().optional().describe('Monthly amount, lumpsum amount, loan principal, or current cost'),
+        rate: z.number().optional().describe('Annual interest rate percentage (e.g. 12 for 12%)'),
+        years: z.number().optional().describe('Time horizon in years'),
+        inflation_rate: z.number().optional().describe('Inflation rate percentage'),
+        step_up_rate: z.number().optional().describe('Annual increase percentage for SIPs'),
+        target_amount: z.number().optional().describe('Target corpus amount'),
+        withdrawal_amount: z.number().optional().describe('Monthly withdrawal amount for SWP'),
+        delay_years: z.number().optional().describe('Years of delay for cost_of_delay'),
+        final_amount: z.number().optional().describe('Final corpus for CAGR')
       }),
-      execute: async ({ type, principal, rate, years }: { type: 'sip' | 'lumpsum' | 'emi'; principal: number; rate: number; years: number }) => {
+      execute: async (args: any) => {
+        const { type, principal = 0, rate = 0, years = 0, inflation_rate = 0, step_up_rate = 0, target_amount = 0, withdrawal_amount = 0, delay_years = 0, final_amount = 0 } = args;
+
         const r = (rate / 100) / 12; // monthly interest rate
         const n = years * 12; // total months
-
-        if (r === 0) return 'Error: Interest rate must be greater than 0.';
+        const annual_r = rate / 100;
+        const inf = inflation_rate / 100;
 
         if (type === 'sip') {
+          if (r === 0) return 'Error: Interest rate must be greater than 0.';
           const futureValue = principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
           const investedAmount = principal * n;
-          const wealthGained = futureValue - investedAmount;
-          return `SIP Calculation Result:\nInvested Amount: ₹${Math.round(investedAmount).toLocaleString('en-IN')}\nEstimated Returns: ₹${Math.round(wealthGained).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
+          return `SIP Result:\nInvested: ₹${Math.round(investedAmount).toLocaleString('en-IN')}\nReturns: ₹${Math.round(futureValue - investedAmount).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
         } else if (type === 'lumpsum') {
-          const futureValue = principal * Math.pow(1 + (rate / 100), years);
-          const wealthGained = futureValue - principal;
-          return `Lumpsum Calculation Result:\nInvested Amount: ₹${Math.round(principal).toLocaleString('en-IN')}\nEstimated Returns: ₹${Math.round(wealthGained).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
-        } else {
+          const futureValue = principal * Math.pow(1 + annual_r, years);
+          return `Lumpsum Result:\nInvested: ₹${Math.round(principal).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
+        } else if (type === 'emi') {
+          if (r === 0) return 'Error: Interest rate must be greater than 0.';
           const emi = principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
           const totalPayment = emi * n;
-          const totalInterest = totalPayment - principal;
-          return `EMI Calculation Result:\nMonthly EMI: ₹${Math.round(emi).toLocaleString('en-IN')}\nPrincipal Amount: ₹${Math.round(principal).toLocaleString('en-IN')}\nTotal Interest: ₹${Math.round(totalInterest).toLocaleString('en-IN')}\nTotal Payment: ₹${Math.round(totalPayment).toLocaleString('en-IN')}`;
+          return `EMI Result:\nMonthly EMI: ₹${Math.round(emi).toLocaleString('en-IN')}\nTotal Interest: ₹${Math.round(totalPayment - principal).toLocaleString('en-IN')}\nTotal Payment: ₹${Math.round(totalPayment).toLocaleString('en-IN')}`;
+        } else if (type === 'college_cost') {
+          const futureCost = principal * Math.pow(1 + inf, years);
+          return `College Cost Result:\nCurrent Cost: ₹${Math.round(principal).toLocaleString('en-IN')}\nEstimated Future Cost in ${years} years (at ${inflation_rate}% inflation): ₹${Math.round(futureCost).toLocaleString('en-IN')}`;
+        } else if (type === 'step_up_sip') {
+          let totalInvested = 0;
+          let currentMonthlySIP = principal;
+          let futureValue = 0;
+          for (let y = 1; y <= years; y++) {
+            for (let m = 1; m <= 12; m++) {
+              totalInvested += currentMonthlySIP;
+              futureValue = (futureValue + currentMonthlySIP) * (1 + r);
+            }
+            currentMonthlySIP += currentMonthlySIP * (step_up_rate / 100);
+          }
+          return `Step-Up SIP Result:\nTotal Invested: ₹${Math.round(totalInvested).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
+        } else if (type === 'target_sip') {
+          if (r === 0) return 'Error: Interest rate must be greater than 0.';
+          const requiredSip = target_amount / (((Math.pow(1 + r, n) - 1) / r) * (1 + r));
+          return `Target SIP Result:\nTo reach ₹${Math.round(target_amount).toLocaleString('en-IN')} in ${years} years at ${rate}%, required monthly SIP is ₹${Math.round(requiredSip).toLocaleString('en-IN')}`;
+        } else if (type === 'cost_of_delay') {
+          if (r === 0) return 'Error: Interest rate must be greater than 0.';
+          const fvNow = principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+          const delayedMonths = (years - delay_years) * 12;
+          const fvDelayed = delayedMonths > 0 ? principal * ((Math.pow(1 + r, delayedMonths) - 1) / r) * (1 + r) : 0;
+          const cost = fvNow - fvDelayed;
+          return `Cost of Delay Result:\nWealth if started now: ₹${Math.round(fvNow).toLocaleString('en-IN')}\nWealth if delayed by ${delay_years} years: ₹${Math.round(fvDelayed).toLocaleString('en-IN')}\nCost of Delay: ₹${Math.round(cost).toLocaleString('en-IN')}`;
+        } else if (type === 'fd') {
+          const quarterlyRate = annual_r / 4;
+          const totalQuarters = years * 4;
+          const futureValue = principal * Math.pow(1 + quarterlyRate, totalQuarters);
+          return `Fixed Deposit Result:\nInvested: ₹${Math.round(principal).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
+        } else if (type === 'rd') {
+          if (r === 0) return 'Error: Interest rate must be greater than 0.';
+          const futureValue = principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
+          return `Recurring Deposit Result:\nInvested: ₹${Math.round(principal * n).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(futureValue).toLocaleString('en-IN')}`;
+        } else if (type === 'swp') {
+          let balance = principal;
+          let totalWithdrawn = 0;
+          for (let m = 1; m <= n; m++) {
+            balance = balance * (1 + r) - withdrawal_amount;
+            if (balance < 0) {
+              totalWithdrawn += (withdrawal_amount + balance);
+              return `SWP Result:\nCorpus depleted in ${Math.floor(m / 12)} years and ${m % 12} months.\nTotal Withdrawn: ₹${Math.round(totalWithdrawn).toLocaleString('en-IN')}`;
+            }
+            totalWithdrawn += withdrawal_amount;
+          }
+          return `SWP Result:\nTotal Withdrawn: ₹${Math.round(totalWithdrawn).toLocaleString('en-IN')}\nFinal Balance remaining: ₹${Math.round(balance).toLocaleString('en-IN')}`;
+        } else if (type === 'ppf') {
+          const ppfRate = 0.071; // 7.1%
+          let balance = 0;
+          let invested = 0;
+          for (let y = 1; y <= 15; y++) {
+            invested += principal; 
+            balance = (balance + principal) * (1 + ppfRate);
+          }
+          return `PPF Result (15 years at 7.1%):\nTotal Invested: ₹${Math.round(invested).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(balance).toLocaleString('en-IN')}`;
+        } else if (type === 'ssy') {
+          const ssyRate = 0.082; // 8.2%
+          let balance = 0;
+          let invested = 0;
+          for (let y = 1; y <= 21; y++) {
+            if (y <= 15) {
+              invested += principal;
+              balance += principal;
+            }
+            balance = balance * (1 + ssyRate);
+          }
+          return `Sukanya Samriddhi Yojana Result (21 years at 8.2%):\nTotal Invested: ₹${Math.round(invested).toLocaleString('en-IN')}\nTotal Value: ₹${Math.round(balance).toLocaleString('en-IN')}`;
+        } else if (type === 'cagr') {
+          const cagr = Math.pow(final_amount / principal, 1 / years) - 1;
+          return `CAGR Result:\nCompound Annual Growth Rate: ${(cagr * 100).toFixed(2)}%`;
+        } else if (type === 'retirement') {
+          const yearsToRetire = years;
+          const lifeExpectancyPostRetirement = delay_years || 20; 
+          const futureExpense = principal * Math.pow(1 + inf, yearsToRetire); 
+          const annualRetirementExpense = futureExpense * 12;
+          const realReturnRate = ((1 + annual_r) / (1 + inf)) - 1;
+          const requiredCorpus = annualRetirementExpense * ((1 - Math.pow(1 + realReturnRate, -lifeExpectancyPostRetirement)) / realReturnRate);
+          return `Retirement Corpus Result:\nEstimated Annual Expense at Retirement: ₹${Math.round(annualRetirementExpense).toLocaleString('en-IN')}\nRequired Retirement Corpus: ₹${Math.round(requiredCorpus).toLocaleString('en-IN')}`;
+        } else if (type === 'income_tax') {
+          const income = principal;
+          let oldTax = 0;
+          if (income > 250000) {
+            if (income <= 500000) oldTax = (income - 250000) * 0.05;
+            else if (income <= 1000000) oldTax = 12500 + (income - 500000) * 0.20;
+            else oldTax = 112500 + (income - 1000000) * 0.30;
+          }
+          if (income <= 500000) oldTax = 0; 
+          let newTax = 0;
+          if (income > 300000) {
+            if (income <= 600000) newTax = (income - 300000) * 0.05;
+            else if (income <= 900000) newTax = 15000 + (income - 600000) * 0.10;
+            else if (income <= 1200000) newTax = 45000 + (income - 900000) * 0.15;
+            else if (income <= 1500000) newTax = 90000 + (income - 1200000) * 0.20;
+            else newTax = 150000 + (income - 1500000) * 0.30;
+          }
+          if (income <= 700000) newTax = 0; 
+          return `Income Tax Result (Simplified):\nIncome: ₹${income.toLocaleString('en-IN')}\nTax under Old Regime: ₹${Math.round(oldTax).toLocaleString('en-IN')}\nTax under New Regime: ₹${Math.round(newTax).toLocaleString('en-IN')}`;
         }
+        
+        return "Unknown calculation type.";
       },
     },
 
