@@ -349,6 +349,10 @@ export async function POST(req: Request) {
               // No tool calls — this is the final text response
               keepGenerating = false;
               let finalText = assistantMessage.content || '';
+              
+              if (!finalText.trim() && stepCount > 1) {
+                finalText = "Action completed successfully.";
+              }
 
               // Apply output guardrails
               const { text: safeFinalText, requiresDisclaimer } = guardrails.filterOutput(finalText);
