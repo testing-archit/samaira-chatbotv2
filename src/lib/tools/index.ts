@@ -212,8 +212,10 @@ export function getTools(context: { sessionId: string; profileId: string; userId
         const annual_r = rate / 100;
         const inf = inflation_rate / 100;
 
-        if (principal === 0 && years === 0 && rate === 0 && target_amount === 0) {
-          if (type === 'menu') return 'Here is the calculator menu. Please select an option below.';
+        const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost'];
+        if (type === 'menu') return 'Here is the calculator menu. Please select an option below.';
+        
+        if (chartableTypes.includes(type) && principal === 0 && years === 0 && rate === 0 && target_amount === 0) {
           return `Here is the ${type.toUpperCase()} calculator. Please use the interactive inputs below to enter your details and see the projection.`;
         }
 

@@ -365,32 +365,67 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
 
   if (type === 'menu') {
     const calculators = [
-      { id: 'sip', name: 'SIP Calculator', icon: '📈' },
-      { id: 'lumpsum', name: 'Lumpsum Growth', icon: '💰' },
-      { id: 'emi', name: 'Loan EMI', icon: '🏦' },
-      { id: 'college_cost', name: 'College Cost', icon: '🎓' },
-      { id: 'retirement', name: 'Retirement', icon: '🏖️' },
-      { id: 'swp', name: 'SWP (Withdrawals)', icon: '💸' },
-      { id: 'ppf', name: 'PPF Scheme', icon: '🏛️' },
-      { id: 'ssy', name: 'SSY Scheme', icon: '👧' },
+      { id: 'sip', name: 'SIP Calculator', icon: '📈', desc: 'Calculate returns on your systematic monthly investments.' },
+      { id: 'lumpsum', name: 'Lumpsum', icon: '💰', desc: 'Estimate potential returns on one-time investments.' },
+      { id: 'step_up_sip', name: 'Step Up SIP', icon: '🪜', desc: 'Project investment growth with yearly increases.' },
+      { id: 'target_sip', name: 'Target Amount SIP', icon: '🎯', desc: 'Determine the monthly SIP amount to hit a goal.' },
+      { id: 'emi', name: 'Loan EMI', icon: '🏦', desc: 'Calculate monthly EMI payments for loans.' },
+      { id: 'college_cost', name: 'College Cost', icon: '🎓', desc: 'Estimate future education expenses.' },
+      { id: 'retirement', name: 'Retirement', icon: '🏖️', desc: 'Plan your retirement corpus and savings.' },
+      { id: 'cost_of_delay', name: 'Cost of Delay', icon: '⏳', desc: 'Understand the financial impact of delaying investments.' },
+      { id: 'swp', name: 'SWP Calculator', icon: '💸', desc: 'Plan systematic withdrawals from your investments.' },
+      { id: 'fd', name: 'Fixed Deposits', icon: '🔒', desc: 'Estimate returns on fixed deposits.' },
+      { id: 'rd', name: 'Recurring Deposits', icon: '🔄', desc: 'Calculate growth on recurring deposits.' },
+      { id: 'ppf', name: 'PPF Scheme', icon: '🏛️', desc: 'Calculate returns on your Public Provident Fund.' },
+      { id: 'ssy', name: 'SSY Scheme', icon: '👧', desc: 'Estimate returns on Sukanya Samriddhi Yojana.' },
+      { id: 'cagr', name: 'CAGR Calculator', icon: '📊', desc: 'Calculate the Compound Annual Growth Rate.' },
+      { id: 'income_tax', name: 'Income Tax', icon: '⚖️', desc: 'Compare Old vs New tax regime.' },
     ];
     return (
       <div style={{ marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
         <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Calculator Menu</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.8rem' }}>
+        <div 
+          className="calculator-carousel hide-scrollbar" 
+          style={{ 
+            display: 'flex', 
+            overflowX: 'auto', 
+            gap: '1rem', 
+            paddingBottom: '0.5rem', 
+            scrollSnapType: 'x mandatory'
+          }}
+        >
           {calculators.map(calc => (
             <button 
               key={calc.id}
               onClick={() => append && append({ id: 'msg_' + Math.random().toString(36).substring(2, 9), role: 'user', content: `open ${calc.name}` })}
-              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+              style={{ 
+                flex: '0 0 220px', 
+                scrollSnapAlign: 'start',
+                background: 'var(--bg-primary)', 
+                border: '1px solid var(--border)', 
+                padding: '1.2rem', 
+                borderRadius: '12px', 
+                cursor: 'pointer', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'flex-start', 
+                gap: '0.6rem', 
+                transition: 'all 0.2s',
+                textAlign: 'left'
+              }}
               onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent)'}
               onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
             >
-              <span style={{ fontSize: '1.5rem' }}>{calc.icon}</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)' }}>{calc.name}</span>
+              <span style={{ fontSize: '1.8rem' }}>{calc.icon}</span>
+              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{calc.name}</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{calc.desc}</span>
             </button>
           ))}
         </div>
+        <style>{`
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        `}</style>
       </div>
     );
   }
