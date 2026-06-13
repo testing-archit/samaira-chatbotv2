@@ -84,6 +84,12 @@ export function getTools(context: { sessionId: string; profileId: string; userId
       const profile = await getUserProfile(context.profileId);
       const profileText = profile ? JSON.stringify(profile, null, 2) : 'No profile data saved.';
 
+      let rootUserEmail: string | null = null;
+      try {
+        const userRows = await sql`SELECT email FROM users WHERE id = ${context.userId}`;
+        if (userRows.length > 0) rootUserEmail = userRows[0].email;
+      } catch (_) {}
+
       const resolvedName = name || (context.profileName !== 'Self' ? context.profileName : 'Not Provided');
 
       const emailBody = `New Lead Captured!
@@ -91,6 +97,7 @@ export function getTools(context: { sessionId: string; profileId: string; userId
 --- LEAD DETAILS ---
 Name: ${resolvedName}
 Contact Info: ${phoneOrEmail}
+Registered User Email: ${rootUserEmail || 'Guest / Not Found'}
 Query: ${query}
 
 --- CONTEXT ---
@@ -436,15 +443,23 @@ ${historyText}`;
     },
 
     capture_lead: {
-      description: 'Capture contact details and query for callback or unresolved queries.',
+      description: 'Capture contact details and query for callback or unresolved queries. Only specify phone if the user explicitly provided one.',
       parameters: z.object({
         name: z.string().optional(),
-        phone: z.string(),
+        phone: z.string().optional(),
         query: z.string()
       }),
-      execute: async ({ name, phone, query }: { name?: string; phone: string; query: string }) => {
+      execute: async ({ name, phone, query }: { name?: string; phone?: string; query: string }) => {
         logger.info('Tool call: capture_lead', { name, phone, query });
-        const success = await performLeadCapture(name, phone, query);
+        
+        let userEmail: string | null = null;
+        try {
+          const userRows = await sql`SELECT email FROM users WHERE id = ${context.userId}`;
+          if (userRows.length > 0) userEmail = userRows[0].email;
+        } catch (_) {}
+
+        const contact = phone || userEmail || 'None provided';
+        const success = await performLeadCapture(name, contact, query);
         if (success) {
           return "Successfully captured lead. The marketing team has been notified and the details are saved.";
         } else {

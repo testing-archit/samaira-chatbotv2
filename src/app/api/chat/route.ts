@@ -125,15 +125,15 @@ const tools = [
     type: 'function',
     function: {
       name: 'capture_lead',
-      description: 'Capture user contact details and query to have a representative call them back. Use this when the user needs more help, asks to speak to a human, or asks a question the system cannot answer.',
+      description: 'Capture user contact details and query to have a representative call them back. Use this when the user needs more help, asks to speak to a human, or asks a question the system cannot answer. If they are not logged in, you must ask for their phone number before calling this tool. DO NOT invent/hallucinate a phone number.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Name of the user (if provided, otherwise leave empty)' },
-          phone: { type: 'string', description: 'Phone number of the user' },
+          phone: { type: 'string', description: 'Phone number of the user. Only optional if user is logged in.' },
           query: { type: 'string', description: 'The specific question or reason they want a callback' }
         },
-        required: ['phone', 'query']
+        required: ['query']
       },
     },
   },
