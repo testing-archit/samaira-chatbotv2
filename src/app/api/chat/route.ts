@@ -225,6 +225,13 @@ export async function POST(req: Request) {
     // Filter out empty assistant messages to prevent OpenRouter 400 errors
     messages = messages.filter(m => !(m.role === 'assistant' && !m.content && (!m.toolInvocations || m.toolInvocations.length === 0)));
 
+    // Optimize Chat Memory: Limit the message history to the last 10 messages
+    // to preserve context window, minimize latency, and reduce API token usage.
+    const MAX_HISTORY = 10;
+    if (messages.length > MAX_HISTORY) {
+      messages = messages.slice(-MAX_HISTORY);
+    }
+
     const user_id = body.user_id || 'anon_' + Math.random().toString(36).substring(2, 9);
     const profile_id = body.profile_id || user_id; // fallback for backwards compat
     const profile_name = body.profile_name || 'Self';
