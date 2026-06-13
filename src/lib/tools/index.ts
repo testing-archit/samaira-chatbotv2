@@ -70,11 +70,22 @@ export function getTools(context: { sessionId: string; profileId: string; userId
       }),
       execute: async ({ query }: { query: string }) => {
         logger.info('Tool call: search_octaraa_knowledge', { query });
+        
+        // Direct regex intercept for AMC queries where we know we don't have it in Octaraa's knowledge
+        if (/amc|asset management/i.test(query) && !/octaraa/i.test(query)) {
+          return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
+        }
+
         const results = await vectorSearch('knowledge_chunks', query, 'octaraa');
-        if (results.length === 0) return "I am sorry, but I do not have that specific information about Octaraa based on the website.";
+        if (results.length === 0) {
+          if (/amc|asset management/i.test(query)) {
+            return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
+          }
+          return "I am sorry, but I do not have that specific information about Octaraa based on the website.";
+        }
         
         const facts = results.map((r: any) => r.content).join('\n\n');
-        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer, say 'I could not find this information in the Octaraa knowledge base.'\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation or ask about their financial goals. Use markdown formatting.`;
+        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer:\n- If the query is about an AMC (Asset Management Company) or unknown mutual fund house, state that an Octaraa representative or wealth expert can assist them further, list the top 5 AMCs in India (SBI, ICICI Prudential, HDFC, Nippon India, Kotak Mahindra), and politely ask if they would like to leave their contact details (phone number) so a representative can call them back.\n- Otherwise, say 'I could not find this information in the Octaraa knowledge base.'\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation or ask about their financial goals. Use markdown formatting.`;
         return await model.agentCall(systemPrompt, query);
       },
     },
@@ -86,12 +97,15 @@ export function getTools(context: { sessionId: string; profileId: string; userId
       }),
       execute: async ({ query }: { query: string }) => {
         logger.info('Tool call: search_finance_education', { query });
-        // Use null kbFilter to search the entire Pinecone index, ensuring we don't miss Octaraa blogs
-        // that the supervisor might misclassify as general finance.
+        
+        if (/amc|asset management/i.test(query) && !/octaraa/i.test(query) && !/sbi|icici|hdfc|nippon|kotak/i.test(query)) {
+          return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
+        }
+
         const results = await vectorSearch('knowledge_chunks', query, null);
         const facts = results.length > 0 ? results.map((r: any) => r.content).join('\n\n') : 'No specific facts found in DB.';
         
-        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation. For example, you can ask if they want to calculate their SIP returns or set a new financial goal.`;
+        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.\n\nCRITICAL: If the query is about an unknown AMC (Asset Management Company) or mutual fund house and the provided facts do not contain the answer, state that an Octaraa representative or wealth expert can assist them further, list the top 5 AMCs in India (1. SBI Mutual Fund, 2. ICICI Prudential Mutual Fund, 3. HDFC Mutual Fund, 4. Nippon India Mutual Fund, 5. Kotak Mahindra Mutual Fund), and politely ask if they would like to leave their contact details (phone number) so a representative can call them back.\n\nTo keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation. For example, you can ask if they want to calculate their SIP returns or set a new financial goal.`;
         return await model.agentCall(systemPrompt, query);
       },
     },
