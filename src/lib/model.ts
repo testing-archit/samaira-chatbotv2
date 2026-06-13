@@ -61,14 +61,16 @@ export const model = {
   },
   agentCall: async (systemPrompt: string, userQuery: string) => {
     return withResilience(async () => {
-      const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${config.GEMINI_API_KEY}`,
+          'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gemini-2.5-flash',
+          model: 'google/gemma-4-31b-it:free',
+          models: ['google/gemma-4-31b-it:free'],
+          route: 'fallback',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userQuery }
