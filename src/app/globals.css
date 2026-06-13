@@ -426,6 +426,8 @@ body {
 
 /* ─── Markdown ───────────────────────────────────── */
 .markdown-body { color: inherit; }
+.markdown-body a { color: var(--brand-accent); text-decoration: underline; }
+.markdown-body a:hover { color: var(--accent); }
 .markdown-body p { margin-bottom: 0.6rem; }
 .markdown-body p:last-child { margin-bottom: 0; }
 .markdown-body strong { color: var(--accent); font-weight: 600; }
