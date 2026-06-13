@@ -8,7 +8,6 @@ export const preferredRegion = 'bom1'; // Deploy to Mumbai for low latency
 export const maxDuration = 60; // Allow up to 60 seconds for LLM responses
 
 const GEMINI_BASE = 'https://openrouter.ai/api/v1';
-const CHAT_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 
 // OpenAI-compatible tool definitions
 const tools = [
