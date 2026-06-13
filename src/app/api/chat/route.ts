@@ -141,7 +141,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'export_plan',
-      description: 'Generate and email the user\'s personalized financial plan as a PDF document. Use this when the user asks to export, download, email, or generate a PDF of their plan.',
+      description: 'Generate and email the user\'s personalized financial plan as a PDF document. EXTREMELY IMPORTANT: DO NOT use this tool unless the user EXPLICITLY asks to export, download, email, or generate a PDF. NEVER use this tool just to answer a question, read their profile, or summarize what you know about them.',
       parameters: {
         type: 'object',
         properties: {
