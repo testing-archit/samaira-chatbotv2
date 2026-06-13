@@ -212,6 +212,10 @@ export function getTools(context: { sessionId: string; profileId: string; userId
         const annual_r = rate / 100;
         const inf = inflation_rate / 100;
 
+        if (principal === 0 && years === 0 && rate === 0 && target_amount === 0) {
+          return `Here is the ${type.toUpperCase()} calculator. Please use the interactive inputs below to enter your details and see the projection.`;
+        }
+
         if (type === 'sip') {
           if (r === 0) return 'Error: Interest rate must be greater than 0.';
           const futureValue = principal * ((Math.pow(1 + r, n) - 1) / r) * (1 + r);
