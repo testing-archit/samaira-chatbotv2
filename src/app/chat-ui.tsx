@@ -399,26 +399,30 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               key={calc.id}
               onClick={() => append && append({ id: 'msg_' + Math.random().toString(36).substring(2, 9), role: 'user', content: `open ${calc.name}` })}
               style={{ 
-                flex: '0 0 220px', 
+                flex: '0 0 240px', 
+                minHeight: '220px',
                 scrollSnapAlign: 'start',
                 background: 'var(--bg-primary)', 
                 border: '1px solid var(--border)', 
-                padding: '1.2rem', 
+                padding: '1.5rem', 
                 borderRadius: '12px', 
                 cursor: 'pointer', 
                 display: 'flex', 
                 flexDirection: 'column', 
                 alignItems: 'flex-start', 
-                gap: '0.6rem', 
+                justifyContent: 'space-between',
+                gap: '0.8rem', 
                 transition: 'all 0.2s',
                 textAlign: 'left'
               }}
               onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent)'}
               onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
             >
-              <span style={{ fontSize: '1.8rem' }}>{calc.icon}</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{calc.name}</span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{calc.desc}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <span style={{ fontSize: '2rem' }}>{calc.icon}</span>
+                <span style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>{calc.name}</span>
+              </div>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{calc.desc}</span>
             </button>
           ))}
         </div>
