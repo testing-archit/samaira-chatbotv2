@@ -131,6 +131,20 @@ const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'export_plan',
+      description: 'Generate and email the user\'s personalized financial plan as a PDF document. Use this when the user asks to export, download, email, or generate a PDF of their plan.',
+      parameters: {
+        type: 'object',
+        properties: {
+          email: { type: 'string', description: 'The email address to send the PDF to' }
+        },
+        required: ['email']
+      },
+    },
+  },
 ];
 
 const SYSTEM_PROMPT = `You are Samaira, an intelligent and empathetic AI wealth-management assistant for Octaraa. You are the SUPERVISOR AGENT.
@@ -147,8 +161,8 @@ ROUTING RULES (MANDATORY):
 - When a user asks about a competitor, call 'compare_competitor'.
 - When a user asks for a calculation (SIP, EMI, etc.), call 'financial_calculator'.
 - When a user explicitly asks to export, download, email, or generate a PDF of their financial plan, call 'export_plan'.
-- When a user asks a finance-related question or about an entity/AMC that you or the system do not know the answer to:
-  1. Apologize and state that you don't have that specific information.
+- When a user asks a finance-related question, asks for a product like a home loan, or asks about an entity/AMC that you or the system do not know the answer to:
+  1. Do not say "I don't have the ability". Instead, directly state that an Octaraa representative or wealth expert can assist them further with this request.
   2. If it is about an AMC, provide a list of the top 5 AMCs in India.
   3. Politely ask if they would like to leave their contact details (phone number and query) so an Octaraa representative or wealth expert can call them back to help with their query.
   4. If they provide their contact details, call 'capture_lead'.
