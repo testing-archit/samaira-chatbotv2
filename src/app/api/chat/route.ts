@@ -7,7 +7,7 @@ import { sql } from '@/lib/db';
 export const preferredRegion = 'bom1'; // Deploy to Mumbai for low latency
 export const maxDuration = 60; // Allow up to 60 seconds for LLM responses
 
-const GEMINI_BASE = 'https://openrouter.ai/api/v1';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/openai';
 
 // OpenAI-compatible tool definitions
 const tools = [
@@ -191,15 +191,11 @@ async function callGemini(messages: any[], stream: boolean) {
   const res = await fetch(`${GEMINI_BASE}/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
+      'Authorization': `Bearer ${config.GEMINI_API_KEY}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'google/gemma-4-31b-it:free',
-      models: [
-        'google/gemma-4-31b-it:free',
-      ],
-      route: 'fallback',
+      model: 'gemini-2.5-flash',
       messages,
       tools,
       tool_choice: 'auto',
