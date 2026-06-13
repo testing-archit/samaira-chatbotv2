@@ -195,8 +195,9 @@ async function callGemini(messages: any[], stream: boolean) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
+      model: 'google/gemma-4-31b-it:free',
       models: [
-        'openai/gpt-oss-120b:free',
+        'google/gemma-4-31b-it:free',
       ],
       route: 'fallback',
       messages,
@@ -250,6 +251,7 @@ export async function POST(req: Request) {
     await sql`
       INSERT INTO messages (id, session_id, role, content)
       VALUES (${userMessageId}, ${session_id}, 'user', ${latestMessage.content})
+      ON CONFLICT (id) DO NOTHING
     `;
     if (latestMessage?.role === 'user') {
       try {

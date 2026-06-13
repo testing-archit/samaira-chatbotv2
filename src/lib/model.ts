@@ -68,7 +68,8 @@ export const model = {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          models: ['openai/gpt-oss-120b:free'],
+          model: 'google/gemma-4-31b-it:free',
+          models: ['google/gemma-4-31b-it:free'],
           route: 'fallback',
           messages: [
             { role: 'system', content: systemPrompt },

@@ -22,6 +22,7 @@ interface Message {
 }
 
 const suggestions = [
+  { label: "📊 Open Calculator Menu", type: 'instant_calc' },
   { label: "FD vs mutual fund", prompt: "Explain FD vs mutual fund for a young family" },
   { label: "What is the family tree?", prompt: "What is the Family Tree feature?" },
   { label: "Plan my family goals", prompt: "Help me plan for my family's financial goals" },
@@ -347,23 +348,24 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 
 // ─── Generative UI Chart Component ───
 function CalculatorChart({ args, append }: { args: any, append?: any }) {
-  const initialType = args?.type || 'sip';
+  const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
+  const initialType = parsedArgs?.type || 'sip';
   const [activeCalc, setActiveCalc] = useState(initialType);
 
   useEffect(() => {
-    setActiveCalc(args?.type || 'sip');
-  }, [args?.type]);
+    setActiveCalc(parsedArgs?.type || 'sip');
+  }, [parsedArgs?.type]);
 
   const [params, setParams] = useState({
-    principal: args?.principal || 0,
-    rate: args?.rate || 0,
-    years: args?.years || 0,
-    step_up_rate: args?.step_up_rate || 0,
-    withdrawal_amount: args?.withdrawal_amount || 0,
-    inflation_rate: args?.inflation_rate || 0,
+    principal: parsedArgs?.principal || 0,
+    rate: parsedArgs?.rate || 0,
+    years: parsedArgs?.years || 0,
+    step_up_rate: parsedArgs?.step_up_rate || 0,
+    withdrawal_amount: parsedArgs?.withdrawal_amount || 0,
+    inflation_rate: parsedArgs?.inflation_rate || 0,
   });
 
-  if (!args || !args.type) return null;
+  if (!parsedArgs || !parsedArgs.type) return null;
 
   // We only chart time-series data
   const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost', 'menu'];
@@ -533,7 +535,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
     <div style={{ width: '100%', marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{title}</h4>
-        {args?.type === 'menu' && (
+        {parsedArgs?.type === 'menu' && (
           <button onClick={() => setActiveCalc('menu')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>← Back to Menu</button>
         )}
       </div>
@@ -613,7 +615,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           </div>
         )}
 
-        {type === 'college_cost' && (
+        {activeCalc === 'college_cost' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Inflation (%)</label>
             <input 
@@ -951,22 +953,43 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                 <p>Hi! I&apos;m Samaira, your family wealth assistant. What would you like to explore?</p>
               </div>
               
-              <div className="quick-reply-chips" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="quick-reply-chips" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '8px' }}>
                 {suggestions.map((s, i) => (
                   <button
                     key={i}
                     className="chip-btn"
-                    onClick={() =>
-                      append({
-                        id: 'msg_' + Math.random().toString(36).substring(2, 9),
-                        role: 'user',
-                        content: s.prompt,
-                        toolInvocations: [],
-                      })
-                    }
+                    onClick={() => {
+                      if (s.type === 'instant_calc') {
+                        const mockId = Math.random().toString(36).substring(2, 9);
+                        setMessages(prev => [
+                          ...prev,
+                          { id: 'usr_' + mockId, role: 'user', content: 'Open Calculator Menu' },
+                          {
+                            id: 'asst_' + mockId,
+                            role: 'assistant',
+                            content: 'Here is the calculator menu.',
+                            toolInvocations: [{
+                              toolCallId: 'call_' + mockId,
+                              toolName: 'financial_calculator',
+                              args: { type: 'menu' },
+                              state: 'result',
+                              result: 'Here is the calculator menu.'
+                            }]
+                          }
+                        ]);
+                        setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, 100);
+                      } else {
+                        append({
+                          id: 'msg_' + Math.random().toString(36).substring(2, 9),
+                          role: 'user',
+                          content: s.prompt,
+                          toolInvocations: [],
+                        });
+                      }
+                    }}
                   >
                     {s.label}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    {s.type !== 'instant_calc' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 6 }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>}
                   </button>
                 ))}
               </div>

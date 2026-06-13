@@ -1427,9 +1427,9 @@ body {
 .chip-btn {
   display: flex;
   align-items: center;
-  background: transparent;
-  border: 1px solid var(--color-background-info);
-  color: var(--color-background-info);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
   padding: 8px 16px;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -1439,7 +1439,9 @@ body {
 }
 
 .chip-btn:hover {
-  background: var(--brand-blue-glow);
+  background: var(--bg-primary);
+  border-color: var(--brand-accent);
+  color: var(--text-primary);
 }
 
 .self-badge {
