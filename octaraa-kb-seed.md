@@ -2776,3 +2776,16 @@ No, Octaraa is beginner-friendly and offers financial calculators & Samaira AI, 
 ## How can Octaraa help me achieve my family's financial goals?
 Octaraa helps you set clear financial goals and track progress, to build and grow your family's wealth over time.
 
+## [https://octaraa.com/discover-fixed-deposits] FD options available on Octaraa
+Octaraa offers various Fixed Deposit (FD) plans with competitive interest rates. You can Discover Fixed Deposits based on the following categories:
+- Women Benefits: Fixed deposits that offer additional interest to women.
+- Senior Citizen: Fixed deposits that offer additional interest to senior citizens.
+- Best Rates: Highest interest rate from every issuer across various tenures.
+- Popular Picks: Explore our most booked FDs and get the best interest rate.
+
+FD Plans available on Octaraa include:
+- Suryoday Small Finance Bank: Offers Tax Saver FDs with returns up to 8.00% (or higher depending on tenure). Insured up to ₹5 Lakhs, compounds quarterly, with a minimum investment of ₹1000. Get deduction up to 1.5L under section 80C.
+- Unity Small Finance Bank: Instant FD Booking available. Offers high interest rates (up to 7.80% or more based on tenure). Insured up to ₹5 Lakhs, compounds quarterly, with a minimum investment of ₹1000.
+
+You can filter FD plans by: Max returns, 0-1 year, 1-3 years, and > 3 years. You can also toggle specifically for "Senior" citizen rates.
+
