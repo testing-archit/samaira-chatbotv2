@@ -390,11 +390,11 @@ function CalculatorChart({ args }: { args: any }) {
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-          <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => \`Yr \${val}\`} />
-          <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => \`₹\${(val/100000).toFixed(1)}L\`} />
+          <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
+          <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
           <Tooltip 
-            formatter={(value: number) => \`₹\${value.toLocaleString('en-IN')}\`}
-            labelFormatter={(label) => \`Year \${label}\`}
+            formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
+            labelFormatter={(label) => `Year ${label}`}
             contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
           />
           {type !== 'emi' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
