@@ -1,4 +1,4 @@
-import 'dotenv/config';
+require('dotenv').config({ path: '.env.local' });
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -6,7 +6,7 @@ import { Pinecone } from '@pinecone-database/pinecone';
 import { model } from '../src/lib/model';
 
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
-const INDEX_NAME = 'octaraa-kb';
+const INDEX_NAME = 'octaraa-kb-v2';
 
 function hashContent(content: string) {
   return crypto.createHash('sha256').update(content).digest('hex');
@@ -102,10 +102,50 @@ async function ingestFile(filePath: string, kbType: string) {
   console.log(`Successfully ingested ${chunks.length} chunks for ${kbType}.`);
 }
 
+async function ingestJsonFile(filePath: string, kbType: string) {
+  console.log(`Ingesting JSON ${filePath} into ${kbType}...`);
+  const content = fs.readFileSync(filePath, 'utf8');
+  const items = JSON.parse(content);
+  
+  const index = pc.Index(INDEX_NAME);
+  
+  const batchSize = 10;
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batchItems = items.slice(i, i + batchSize);
+    console.log(`Embedding JSON batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(items.length / batchSize)}...`);
+    
+    const vectors = [];
+    for (const item of batchItems) {
+      if (!item.content) continue;
+      const contentHash = hashContent(item.content);
+      const { embedding } = await model.embed(item.content);
+      
+      vectors.push({
+        id: contentHash,
+        values: embedding,
+        metadata: {
+          kb: kbType,
+          content: item.content,
+          content_hash: contentHash,
+          status: item.status || 'live',
+          source_url: item.source_url || '',
+          as_of: item.as_of || ''
+        }
+      });
+    }
+
+    if (vectors.length > 0) {
+      console.log(`Upserting ${vectors.length} vectors to Pinecone...`);
+      await index.upsert({ records: vectors });
+    }
+  }
+  console.log(`Successfully ingested ${items.length} JSON items for ${kbType}.`);
+}
+
 async function main() {
   await createIndexIfNotExists();
   
-  await ingestFile(path.join(__dirname, '../octaraa-kb-seed.md'), 'octaraa');
+  await ingestJsonFile(path.join(__dirname, '../octaraa-kb-clean.json'), 'octaraa');
   await ingestFile(path.join(__dirname, '../finance_education.md'), 'finance_education');
   
   console.log('Ingestion complete!');

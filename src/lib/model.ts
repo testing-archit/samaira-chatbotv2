@@ -59,4 +59,32 @@ export const model = {
       return { embedding: embeddingArray };
     }, 'embed');
   },
+  agentCall: async (systemPrompt: string, userQuery: string) => {
+    return withResilience(async () => {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          models: ['openai/gpt-oss-120b:free'],
+          route: 'fallback',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userQuery }
+          ],
+          temperature: 0.1,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`OpenRouter agent error ${res.status}: ${errText}`);
+      }
+
+      const data = await res.json();
+      return data.choices[0].message.content;
+    }, 'agentCall');
+  },
 };

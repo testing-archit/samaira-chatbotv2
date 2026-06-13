@@ -280,10 +280,15 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
   const loadMoreMessages = useCallback(async () => {
     if (isLoadingMore || !hasMore || messages.length === 0) return;
     
+    const oldestMessage = messages[0];
+    if (!oldestMessage.created_at) {
+      setHasMore(false);
+      return;
+    }
+    
     setIsLoadingMore(true);
     const { sessionId } = getProfileSessionId();
-    const oldestMessage = messages[0];
-    const beforeParam = oldestMessage.created_at ? encodeURIComponent(oldestMessage.created_at) : '';
+    const beforeParam = encodeURIComponent(oldestMessage.created_at);
     
     try {
       const res = await fetch(`/api/messages?session_id=${sessionId}&limit=20&before=${beforeParam}`);
@@ -294,7 +299,12 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
         const previousScrollHeight = container?.scrollHeight || 0;
         const previousScrollTop = container?.scrollTop || 0;
 
-        setMessages(prev => [...data.messages, ...prev]);
+        setMessages(prev => {
+          const newMessages = data.messages.filter((newMsg: any) => 
+            !prev.some((existingMsg) => existingMsg.id === newMsg.id)
+          );
+          return [...newMessages, ...prev];
+        });
         setHasMore(data.hasMore);
 
         requestAnimationFrame(() => {

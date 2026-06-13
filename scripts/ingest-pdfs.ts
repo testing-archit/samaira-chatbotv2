@@ -1,5 +1,4 @@
-import { config } from 'dotenv';
-config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.local' });
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -10,7 +9,7 @@ import { model } from '../src/lib/model';
 import { Pinecone } from '@pinecone-database/pinecone';
 
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
-const INDEX_NAME = 'octaraa-kb';
+const INDEX_NAME = 'octaraa-kb-v2';
 
 function hashContent(content: string) {
   return crypto.createHash('sha256').update(content).digest('hex');

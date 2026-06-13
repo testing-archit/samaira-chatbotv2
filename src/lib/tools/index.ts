@@ -15,10 +15,10 @@ function getPineconeClient() {
   return pc;
 }
 
-const PINECONE_INDEX = 'octaraa-kb';
+const PINECONE_INDEX = 'octaraa-kb-v2';
 
 // Basic vector search
-async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 8) {
+async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 20) {
   const { embedding } = await model.embed(query);
   const pcClient = getPineconeClient();
   const index = pcClient.Index(PINECONE_INDEX);
@@ -36,7 +36,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
       similarity: match.score || 0,
       fts_rank: 0,
       rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.40);
+    })).filter(r => r.similarity > 0.10);
     
     return results;
   } else {
@@ -51,7 +51,7 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
       similarity: match.score || 0,
       fts_rank: 0,
       rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.40);
+    })).filter(r => r.similarity > 0.10);
     
     return results;
   }
@@ -60,15 +60,18 @@ async function vectorSearch(tableName: string, query: string, kbFilter: string |
 export function getTools(sessionId: string, profileId: string) {
   return {
     search_octaraa_knowledge: {
-      description: 'Search the Octaraa product knowledge base. Use this to answer questions about Octaraa features.',
+      description: 'Search the Octaraa product knowledge base. Use this to answer questions about Octaraa features, FAQs, financial planning blogs, psychology of investing, or anything about the Octaraa platform.',
       parameters: z.object({
-        query: z.string().describe('The search query about Octaraa features or FAQs'),
+        query: z.string().describe('The search query about Octaraa features, FAQs, or blogs'),
       }),
       execute: async ({ query }: { query: string }) => {
         logger.info('Tool call: search_octaraa_knowledge', { query });
         const results = await vectorSearch('knowledge_chunks', query, 'octaraa');
-        if (results.length === 0) return "NO INFORMATION FOUND. YOU MUST STRICTLY REPLY: 'I am sorry, but I do not have that specific information about Octaraa.' DO NOT GUESS OR MAKE UP FACTS.";
-        return results.map((r: any) => r.content).join('\n\n');
+        if (results.length === 0) return "I am sorry, but I do not have that specific information about Octaraa based on the website.";
+        
+        const facts = results.map((r: any) => r.content).join('\n\n');
+        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer, say 'I could not find this information in the Octaraa knowledge base.' Use markdown formatting.`;
+        return await model.agentCall(systemPrompt, query);
       },
     },
 
@@ -79,14 +82,18 @@ export function getTools(sessionId: string, profileId: string) {
       }),
       execute: async ({ query }: { query: string }) => {
         logger.info('Tool call: search_finance_education', { query });
-        const results = await vectorSearch('knowledge_chunks', query, 'finance_education');
-        if (results.length === 0) return "NO INFORMATION FOUND. If you don't confidently know the answer from your general financial knowledge, politely say you don't know.";
-        return results.map((r: any) => r.content).join('\n\n');
+        // Use null kbFilter to search the entire Pinecone index, ensuring we don't miss Octaraa blogs
+        // that the supervisor might misclassify as general finance.
+        const results = await vectorSearch('knowledge_chunks', query, null);
+        const facts = results.length > 0 ? results.map((r: any) => r.content).join('\n\n') : 'No specific facts found in DB.';
+        
+        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.`;
+        return await model.agentCall(systemPrompt, query);
       },
     },
 
     compare_competitor: {
-      description: 'Compare Octaraa against a specific Indian competitor.',
+      description: 'Compare Octaraa against a specific Indian competitor. Use the returned facts honestly, but always frame the conclusion to highlight why Octaraa\'s family-centric approach makes it the preferred choice.',
       parameters: z.object({
         competitor: z.string().describe('The name of the competitor (e.g., Groww, INDmoney)'),
       }),
@@ -97,8 +104,11 @@ export function getTools(sessionId: string, profileId: string) {
           FROM competitor_matrix 
           WHERE competitor ILIKE ${'%' + competitor + '%'}
         `;
-        if (results.length === 0) return "No specific comparisons found for this competitor. Focus on Octaraa's family-centric approach.";
-        return results.map((r: any) => `Dimension: ${r.dimension}\nOctaraa Advantage: ${r.octaraa_advantage}\n(As of: ${r.as_of})`).join('\n\n');
+        if (results.length === 0) return "I couldn't find specific facts for this competitor, but Octaraa focuses on holistic family-wealth planning.";
+        const facts = results.map((r: any) => `Dimension: ${r.dimension}\nOctaraa Advantage: ${r.octaraa_advantage}\n(As of: ${r.as_of})`).join('\n\n');
+        
+        const systemPrompt = `You are the Competitor Analyst Agent. Use these facts strictly:\n\n${facts}\n\nDo not lie or invent. Frame the comparison favorably for Octaraa's Family Tree and Goal-Based Planning. Make Octaraa sound like the preferred holistic choice. Include the 'As of' date. Provide a clean, short markdown response.`;
+        return await model.agentCall(systemPrompt, `Compare Octaraa to ${competitor}`);
       },
     },
 
