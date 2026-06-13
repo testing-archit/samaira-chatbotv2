@@ -348,10 +348,10 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 // ─── Generative UI Chart Component ───
 function CalculatorChart({ args }: { args: any }) {
   if (!args || !args.type) return null;
-  const { type, principal = 0, rate = 0, years = 0, step_up_rate = 0, withdrawal_amount = 0 } = args;
+  const { type, principal = 0, rate = 0, years = 0, step_up_rate = 0, withdrawal_amount = 0, inflation_rate = 0 } = args;
 
   // We only chart time-series data
-  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement'];
+  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost'];
   if (!chartableTypes.includes(type)) return null;
 
   const data = [];
@@ -383,6 +383,12 @@ function CalculatorChart({ args }: { args: any }) {
     for (let i = 0; i <= years; i++) {
       const futureValue = principal * Math.pow(1 + r, i);
       data.push({ year: i, Invested: Math.round(principal), Value: Math.round(futureValue) });
+    }
+  } else if (type === 'college_cost') {
+    const infRate = inflation_rate / 100;
+    for (let i = 0; i <= years; i++) {
+      const futureCost = principal * Math.pow(1 + infRate, i);
+      data.push({ year: i, Cost: Math.round(futureCost) });
     }
   } else if (type === 'ppf') {
     const ppfRate = 0.071;
@@ -441,6 +447,7 @@ function CalculatorChart({ args }: { args: any }) {
   if (type === 'swp') title = 'SWP Balance Depletion';
   if (type === 'ppf') title = 'PPF Wealth Creation (15 Yr)';
   if (type === 'ssy') title = 'SSY Wealth Creation (21 Yr)';
+  if (type === 'college_cost') title = 'Inflation-Adjusted College Cost';
 
   return (
     <div style={{ width: '100%', height: 250, marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -457,9 +464,10 @@ function CalculatorChart({ args }: { args: any }) {
             labelFormatter={(label) => `Year ${label}`}
             contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
           />
-          {type !== 'emi' && type !== 'swp' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
-          {type !== 'emi' && type !== 'swp' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
+          {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
+          {type !== 'emi' && type !== 'swp' && type !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
           {(type === 'emi' || type === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
+          {type === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
         </LineChart>
       </ResponsiveContainer>
     </div>
