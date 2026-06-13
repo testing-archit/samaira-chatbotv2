@@ -3,12 +3,13 @@ import pLimit from 'p-limit';
 import { config } from './config';
 import { logger } from './logger';
 import { cache } from './cache';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const OPENROUTER_EMBEDDING_MODEL = 'nvidia/llama-nemotron-embed-vl-1b-v2:free';
-const OPENROUTER_EMBEDDING_URL = 'https://openrouter.ai/api/v1/embeddings';
 export const EMBEDDING_DIMENSIONS = 1536;
 
 const limit = pLimit(config.MAX_CONCURRENCY);
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 async function withResilience<T>(operation: () => Promise<T>, taskName: string): Promise<T> {
   return limit(() =>
@@ -34,26 +35,26 @@ export const model = {
     if (cached) return { embedding: cached };
 
     return withResilience(async () => {
-      const res = await fetch(OPENROUTER_EMBEDDING_URL, {
+      // Use the native Gemini API for embeddings because OpenRouter free embeddings are failing in production
+      const result = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${process.env.GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${config.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: OPENROUTER_EMBEDDING_MODEL,
-          input: content,
-          dimensions: EMBEDDING_DIMENSIONS,
-        }),
+          model: 'models/gemini-embedding-2',
+          content: { parts: [{ text: content }] },
+          outputDimensionality: EMBEDDING_DIMENSIONS
+        })
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`OpenRouter embedding error ${res.status}: ${errText}`);
+      if (!result.ok) {
+        const errText = await result.text();
+        throw new Error(`Gemini embedding error ${result.status}: ${errText}`);
       }
 
-      const data = await res.json();
-      const embeddingArray: number[] = data.data[0].embedding;
+      const data = await result.json();
+      const embeddingArray: number[] = data.embedding.values;
 
       await cache.setEmbedding(content, embeddingArray);
       return { embedding: embeddingArray };
