@@ -7,11 +7,7 @@ import { Loader2, SendHorizontal, Bot, User, RefreshCw, Check, LogOut, Plus, Tra
 import { addProfile, deleteProfile } from './actions';
 import { logout } from './login/actions';
 
-// Lazy load heavy markdown libraries
-const MarkdownRenderer = dynamic(() => import('./markdown-renderer'), {
-  ssr: false, // Messages are fetched client-side anyway
-  loading: () => <span className="text-secondary">Rendering...</span>
-});
+import MarkdownRenderer from './markdown-renderer';
 
 interface Message {
   id: string;
