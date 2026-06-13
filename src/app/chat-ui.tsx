@@ -346,7 +346,7 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 }
 
 // ─── Generative UI Chart Component ───
-function CalculatorChart({ args }: { args: any }) {
+function CalculatorChart({ args, append }: { args: any, append?: any }) {
   const [params, setParams] = useState({
     principal: args?.principal || 0,
     rate: args?.rate || 0,
@@ -360,8 +360,40 @@ function CalculatorChart({ args }: { args: any }) {
   const { type } = args;
 
   // We only chart time-series data
-  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost'];
+  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost', 'menu'];
   if (!chartableTypes.includes(type)) return null;
+
+  if (type === 'menu') {
+    const calculators = [
+      { id: 'sip', name: 'SIP Calculator', icon: '📈' },
+      { id: 'lumpsum', name: 'Lumpsum Growth', icon: '💰' },
+      { id: 'emi', name: 'Loan EMI', icon: '🏦' },
+      { id: 'college_cost', name: 'College Cost', icon: '🎓' },
+      { id: 'retirement', name: 'Retirement', icon: '🏖️' },
+      { id: 'swp', name: 'SWP (Withdrawals)', icon: '💸' },
+      { id: 'ppf', name: 'PPF Scheme', icon: '🏛️' },
+      { id: 'ssy', name: 'SSY Scheme', icon: '👧' },
+    ];
+    return (
+      <div style={{ marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+        <h4 style={{ marginBottom: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Calculator Menu</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '0.8rem' }}>
+          {calculators.map(calc => (
+            <button 
+              key={calc.id}
+              onClick={() => append && append({ id: 'msg_' + Math.random().toString(36).substring(2, 9), role: 'user', content: `open ${calc.name}` })}
+              style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', padding: '0.8rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', transition: 'all 0.2s' }}
+              onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent)'}
+              onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
+            >
+              <span style={{ fontSize: '1.5rem' }}>{calc.icon}</span>
+              <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-primary)' }}>{calc.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const handleParamChange = (key: string, value: number) => {
     setParams(prev => ({ ...prev, [key]: value }));
@@ -947,7 +979,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                     </div>
                     {m.toolInvocations?.map((tool: any, idx: number) => {
                       if (tool.toolName === 'financial_calculator') {
-                        return <CalculatorChart key={`chart-${idx}`} args={tool.args} />;
+                        return <CalculatorChart key={`chart-${idx}`} args={tool.args} append={append} />;
                       }
                       return null;
                     })}

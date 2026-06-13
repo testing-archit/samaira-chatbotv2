@@ -193,7 +193,7 @@ export function getTools(context: { sessionId: string; profileId: string; userId
     financial_calculator: {
       description: 'Calculate mathematical financial projections including SIP, Lumpsum, EMI, Step-Up SIP, SWP, PPF, SSY, CAGR, Retirement, Income Tax, etc.',
       parameters: z.object({
-        type: z.enum(['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax']).describe('Type of calculation'),
+        type: z.enum(['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax', 'menu']).describe('Type of calculation'),
         principal: z.number().optional().describe('Monthly amount, lumpsum amount, loan principal, or current cost'),
         rate: z.number().optional().describe('Annual interest rate percentage (e.g. 12 for 12%)'),
         years: z.number().optional().describe('Time horizon in years'),
@@ -213,6 +213,7 @@ export function getTools(context: { sessionId: string; profileId: string; userId
         const inf = inflation_rate / 100;
 
         if (principal === 0 && years === 0 && rate === 0 && target_amount === 0) {
+          if (type === 'menu') return 'Here is the calculator menu. Please select an option below.';
           return `Here is the ${type.toUpperCase()} calculator. Please use the interactive inputs below to enter your details and see the projection.`;
         }
 
