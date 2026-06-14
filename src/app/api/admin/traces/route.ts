@@ -32,21 +32,21 @@ export async function GET(req: NextRequest) {
       COALESCE(SUM((data->>'estimated_cost_usd')::numeric), 0) AS total_cost_usd
     FROM traces
     WHERE event = 'turn_end'
-      AND created_at > NOW() - INTERVAL ${interval}
+      AND created_at > NOW() - ${interval}::interval
   `;
 
   const circuitBreakerCount = await sql`
     SELECT COUNT(*) AS count
     FROM traces
     WHERE event = 'circuit_breaker'
-      AND created_at > NOW() - INTERVAL ${interval}
+      AND created_at > NOW() - ${interval}::interval
   `;
 
   const curatedHitCount = await sql`
     SELECT COUNT(*) AS count
     FROM traces
     WHERE event = 'curated_hit'
-      AND created_at > NOW() - INTERVAL ${interval}
+      AND created_at > NOW() - ${interval}::interval
   `;
 
   // ── 2. Tool usage stats ───────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     FROM traces,
          jsonb_array_elements(data->'tools_called') AS tool_entry
     WHERE event = 'turn_end'
-      AND created_at > NOW() - INTERVAL ${interval}
+      AND created_at > NOW() - ${interval}::interval
     GROUP BY tool_entry->>'tool'
     ORDER BY call_count DESC
   `;
