@@ -88,3 +88,41 @@ export const guardrails = {
     return { text: sanitized, requiresDisclaimer };
   },
 };
+
+/**
+ * P0 Circuit-Breaker: checks if the synthesized response contains a multi-goal
+ * financial plan table WITHOUT a reconcile_plan call having happened this turn.
+ *
+ * Detection heuristics (both must be true to fire):
+ *  1. The response contains ≥2 "₹X/mo" or "₹X per month" patterns (multi-goal SIP table)
+ *  2. OR a "Total" label appears adjacent to a rupee figure
+ *
+ * Returns true  → guardrail fired, do NOT stream, loop back to Supervisor.
+ * Returns false → response is clean, safe to stream.
+ */
+export function checkReconciliationGap(
+  responseText: string,
+  thisRoundToolNames: string[]
+): boolean {
+  // If reconcile_plan was already called this turn, we're good.
+  if (thisRoundToolNames.includes('reconcile_plan')) return false;
+
+  // Heuristic 1: ≥2 monthly SIP line items (e.g. ₹15,000/mo or ₹15,000 per month)
+  const monthlyAmounts = responseText.match(/₹[\d,]+\s*\/\s*mo(nth)?/gi) ?? [];
+  if (monthlyAmounts.length >= 2) {
+    logger.warn('[Guardrail] Multi-goal plan detected without reconcile_plan call — looping back.', {
+      matchCount: monthlyAmounts.length,
+    });
+    return true;
+  }
+
+  // Heuristic 2: A "Total" row in a markdown table containing a rupee amount
+  const hasTotalRow = /\|\s*\*{0,2}total\*{0,2}\s*\|[\s\S]{0,60}₹[\d,]+/i.test(responseText);
+  if (hasTotalRow) {
+    logger.warn('[Guardrail] Total-row plan table detected without reconcile_plan call — looping back.');
+    return true;
+  }
+
+  return false;
+}
+

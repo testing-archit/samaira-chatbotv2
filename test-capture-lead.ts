@@ -6,7 +6,7 @@ if (process.env.DATABASE_URL?.startsWith('"')) {
 import { getTools } from './src/lib/tools/index.js';
 
 async function main() {
-  console.log('Testing capture_lead tool...');
+  console.log('Testing request_callback tool...');
   const tools = getTools({
     sessionId: '00000000-0000-0000-0000-000000000000',
     profileId: '00000000-0000-0000-0000-000000000001',
@@ -14,7 +14,7 @@ async function main() {
     profileName: 'Archit Test',
     profileRelation: 'Self',
   });
-  const result = await tools.capture_lead.execute({
+  const result = await tools.request_callback.execute({
     name: 'Archit Test',
     phone: '9999999999',
     query: 'I need help setting up my profile.'

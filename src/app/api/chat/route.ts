@@ -1,4 +1,5 @@
-import { guardrails } from '@/lib/guardrails';
+import { guardrails, checkReconciliationGap } from '@/lib/guardrails';
+import { tracer } from '@/lib/tracer';
 import { logger } from '@/lib/logger';
 import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
@@ -105,14 +106,14 @@ const tools = [
     type: 'function',
     function: {
       name: 'financial_calculator',
-      description: 'Calculate exact SIP future values, lumpsum compound interest, or loan EMI payments mathematically. DO NOT guess math, always use this tool.',
+      description: 'Calculate exact SIP future values, lumpsum compound interest, loan EMI payments, or emergency fund gaps mathematically. DO NOT guess math, always use this tool. Use type=emergency_fund to compute a one-time top-up gap (NOT a monthly SIP).',
       parameters: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax', 'menu'], description: 'Type of calculation' },
-          principal: { type: 'number', description: 'Monthly amount, lumpsum amount, loan principal, or current cost' },
-          rate: { type: 'number', description: 'Annual interest rate percentage (e.g. 12 for 12%)' },
-          years: { type: 'number', description: 'Time horizon in years' },
+          type: { type: 'string', enum: ['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax', 'emergency_fund', 'menu'], description: 'Type of calculation. Use emergency_fund to compute the one-time top-up gap.' },
+          principal: { type: 'number', description: 'Monthly amount, lumpsum amount, loan principal, current cost, or monthly_expenses for emergency_fund' },
+          rate: { type: 'number', description: 'Annual interest rate percentage (e.g. 12 for 12%), or current_emergency_fund_amount in INR for emergency_fund type' },
+          years: { type: 'number', description: 'Time horizon in years, or target_months for emergency_fund type' },
           inflation_rate: { type: 'number', description: 'Inflation rate percentage' },
           step_up_rate: { type: 'number', description: 'Annual increase percentage for SIPs' },
           target_amount: { type: 'number', description: 'Target corpus amount' },
@@ -127,7 +128,34 @@ const tools = [
   {
     type: 'function',
     function: {
-      name: 'capture_lead',
+      name: 'reconcile_plan',
+      description: 'MANDATORY after computing SIPs for multiple goals. Sums all goal SIPs against monthly surplus, checks feasibility, and reallocates proportionally if over-budget. Also surfaces the emergency fund gap as a one-time top-up (NOT monthly). Call this before writing any multi-goal financial plan response.',
+      parameters: {
+        type: 'object',
+        properties: {
+          monthly_surplus: { type: 'number', description: "User's monthly surplus in INR" },
+          goal_sips: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Goal name (e.g. House, Retirement, Vacation)' },
+                monthly_sip: { type: 'number', description: 'Monthly SIP computed for this goal' },
+              },
+              required: ['name', 'monthly_sip'],
+            },
+            description: 'Array of goals with their computed monthly SIP amounts',
+          },
+          emergency_fund_gap_oneoff: { type: 'number', description: 'One-time emergency fund shortfall in INR. Pass 0 if already funded.' },
+        },
+        required: ['monthly_surplus', 'goal_sips'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'request_callback',
       description: 'Capture user contact details and query to have a representative call them back. Use this when the user needs more help, asks to speak to a human, asks for support contact details, or asks a question the system cannot answer. If they are not logged in, you must ask for their phone number before calling this tool (or call it with just the query if they are asking for an email immediately). DO NOT invent/hallucinate a phone number.',
       parameters: {
         type: 'object',
@@ -175,8 +203,15 @@ ROUTING RULES (MANDATORY):
   1. Do not say "I don't have the ability". Instead, directly state that an Octaraa representative or wealth expert can assist them further with this request.
   2. If it is about an AMC, provide a list of the top 5 AMCs in India.
   3. Politely ask if they would like to leave their contact details (phone number and query) so an Octaraa representative or wealth expert can call them back to help with their query.
-  4. If they provide their contact details, call 'capture_lead'.
-- When a user at ANY time explicitly asks for more help, wants to speak to a human, asks for support contact details, or provides their contact information for a callback, you MUST acknowledge them, provide the contact info if relevant, and IMMEDIATELY call 'capture_lead' with their query. DO NOT wait for them to provide a phone number, you can call it without a phone number. Do NOT ask for their name if you already know it from the context.
+  4. If they provide their contact details, call 'request_callback'.
+- When a user at ANY time explicitly asks for more help, wants to speak to a human, asks for support contact details, or provides their contact information for a callback, you MUST acknowledge them, provide the contact info if relevant, and IMMEDIATELY call 'request_callback' with their query. DO NOT wait for them to provide a phone number, you can call it without a phone number. Do NOT ask for their name if you already know it from the context.
+
+MULTI-GOAL PLANNING WORKFLOW (MANDATORY — P0):
+- When the user asks for a plan covering multiple financial goals (e.g. House + Retirement + Vacation + Emergency Fund):
+  1. Call 'financial_calculator' (type='emergency_fund') FIRST to compute the emergency fund as a ONE-TIME top-up gap, NOT a monthly SIP. Pass: principal=monthly_expenses, rate=current_emergency_fund_amount (from profile, or 0 if unknown), years=target_months (default 6).
+  2. Call 'financial_calculator' (type='target_sip' or 'sip') for each remaining goal separately.
+  3. After ALL calculator calls are complete, you MUST call 'reconcile_plan' with the user's monthly_surplus and the array of goal SIPs. Pass the emergency_fund_gap_oneoff value from step 1.
+  4. Only AFTER 'reconcile_plan' returns, write your final answer using the RECONCILED numbers (not the raw calculator outputs). Never write a multi-goal table without calling reconcile_plan first.
 
 SUPERVISOR RULES:
 - IMPORTANT: When you call a tool, that tool returns a FULLY WRITTEN AND SYNTHESIZED RESPONSE.
@@ -188,7 +223,10 @@ PROFILING WORKFLOW (FOLLOW STRICTLY):
 1. When a user asks for a financial plan or strategy, DO NOT ask for consent. Just ask for: earning members, dependents, monthly income, monthly surplus, financial goals.
 2. As each piece of info is given, call update_profile IMMEDIATELY to persist it.
 3. Once you have income, surplus, and at least one goal, call generate_strategy to build their plan.
-4. Present the strategy in a clear, structured, encouraging way.`;
+4. Present the strategy in a clear, structured, encouraging way.
+
+DPDP CONSENT (P2 — MANDATORY before request_callback):
+- Before calling 'request_callback', you MUST first obtain the user's explicit consent. Say: "Before I share your details with our team, may I confirm that you're happy for Octaraa to contact you at the number/email you provided?" Only call 'request_callback' after the user says yes or equivalent confirmation.`;
 
 async function callGemini(messages: any[], stream: boolean) {
   const res = await fetch(`${GEMINI_BASE}/chat/completions`, {
@@ -242,6 +280,12 @@ export async function POST(req: Request) {
     const profile_relation = body.profile_relation || 'self';
     const session_id = body.session_id || 'sess_' + Math.random().toString(36).substring(2, 9);
 
+    // ── Observability: generate a trace ID for this entire turn ──────────────
+    // Every log line within this turn will include traceId so you can grep
+    // a complete picture of any single conversation turn end-to-end.
+    const traceId = crypto.randomUUID();
+    const turnStartMs = Date.now();
+
     const latestMessage = messages[messages.length - 1];
 
     // Ensure user exists in the DB
@@ -276,8 +320,16 @@ export async function POST(req: Request) {
     `;
 
     // Intercept with curated answers to avoid latency, rate limits and guarantee precision
+    const curatedStartMs = Date.now();
     const curated = getCuratedAnswer(latestMessage.content);
     if (curated) {
+      tracer.curatedHit({
+        traceId,
+        userId: user_id,
+        sessionId: session_id,
+        latency_ms: Date.now() - curatedStartMs,
+        query: latestMessage.content.substring(0, 80),
+      });
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
@@ -288,8 +340,16 @@ export async function POST(req: Request) {
             const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
             sendEvent('message_id', aiMessageId);
             
+            // P1 FIX: Route curated answers through filterOutput so the
+            // guaranteed-returns rewrite and BANNED_OUTPUT_PHRASES apply to
+            // static dict entries too (previously bypassed the guardrail entirely).
+            const { text: safeCurated, requiresDisclaimer: curatedDisclaimer } = guardrails.filterOutput(curated);
+            if (curatedDisclaimer) {
+              sendEvent('requires_disclaimer', true);
+            }
+            
             // Stream the text chunk-by-chunk for smooth UI experience
-            const words = curated.split(' ');
+            const words = safeCurated.split(' ');
             for (let i = 0; i < words.length; i++) {
               sendEvent('text', (i === 0 ? '' : ' ') + words[i]);
               await new Promise(r => setTimeout(r, 8));
@@ -298,7 +358,7 @@ export async function POST(req: Request) {
             // Insert Assistant Message into DB
             await sql`
               INSERT INTO messages (id, session_id, role, content, requires_disclaimer)
-              VALUES (${aiMessageId}, ${session_id}, 'assistant', ${curated}, false)
+              VALUES (${aiMessageId}, ${session_id}, 'assistant', ${safeCurated}, ${curatedDisclaimer})
             `;
             controller.close();
           } catch (error: any) {
@@ -343,8 +403,25 @@ export async function POST(req: Request) {
         try {
           let keepGenerating = true;
           let stepCount = 0;
-          const MAX_STEPS = 6;
+          // P1 FIX: Raised from 6 → 8 to accommodate 4×financial_calculator +
+          // 1×reconcile_plan + 1×final_text without hitting the cap prematurely.
+          const MAX_STEPS = 8;
           const sentToolIds = new Set<string>(); // guard: never emit the same toolCallId twice
+          // Track tool names called THIS turn for the reconciliation circuit-breaker
+          const thisRoundToolNames: string[] = [];
+
+          // ── Observability: per-turn accumulators ─────────────────────────
+          let totalPromptTokens = 0;
+          let totalCompletionTokens = 0;
+          const toolCallLog: Array<{ step: number; tool: string; latency_ms: number }> = [];
+
+          logger.info('[Trace] Turn start', {
+            traceId,
+            userId: user_id,
+            sessionId: session_id,
+            profileId: profile_id,
+            query: latestMessage.content.substring(0, 120),
+          });
 
           while (keepGenerating && stepCount < MAX_STEPS) {
             stepCount++;
@@ -352,12 +429,30 @@ export async function POST(req: Request) {
             // Non-streaming for tool-call steps; streaming for the final text response
             // We'll use non-streaming for agentic loop to keep it simple, stream the final step
             const isLastKnownStep = stepCount > 1; // heuristic: stream after first tool call
-            
+
+            const llmStartMs = Date.now();
             const res = await callGemini(openaiMessages, false);
             const completion = await res.json();
+            const llmLatencyMs = Date.now() - llmStartMs;
+
+            // Accumulate token usage (OpenRouter returns usage on every non-streaming call)
+            if (completion.usage) {
+              totalPromptTokens += completion.usage.prompt_tokens ?? 0;
+              totalCompletionTokens += completion.usage.completion_tokens ?? 0;
+            }
 
             const choice = completion.choices[0];
             const assistantMessage = choice.message;
+
+            tracer.llmCall({
+              traceId,
+              step: stepCount,
+              latency_ms: llmLatencyMs,
+              model: completion.model ?? 'unknown',
+              finish_reason: choice.finish_reason,
+              prompt_tokens: completion.usage?.prompt_tokens ?? null,
+              completion_tokens: completion.usage?.completion_tokens ?? null,
+            });
 
             // Add assistant turn to history
             openaiMessages.push(assistantMessage);
@@ -376,6 +471,7 @@ export async function POST(req: Request) {
                 const eventId = toolCall.id || `tool-${stepCount}-${toolName}`;
                 if (!sentToolIds.has(eventId)) {
                   sentToolIds.add(eventId);
+                  thisRoundToolNames.push(toolName); // track for circuit-breaker
                   sendEvent('tool_call', {
                     toolCallId: eventId,
                     toolName,
@@ -386,15 +482,20 @@ export async function POST(req: Request) {
                 const toolImpl = (toolsImpl as any)[toolName];
                 let toolResult = 'Tool not found.';
                 if (toolImpl && typeof toolImpl.execute === 'function') {
+                  const toolStartMs = Date.now();
                   try {
                     toolResult = await toolImpl.execute(toolArgs);
+                    const toolLatencyMs = Date.now() - toolStartMs;
+                    toolCallLog.push({ step: stepCount, tool: toolName, latency_ms: toolLatencyMs });
+                    tracer.toolCall({ traceId, step: stepCount, tool: toolName, latency_ms: toolLatencyMs });
                   } catch (err: any) {
-                    logger.error(`Tool execution error for ${toolName}`, { error: err.message, args: toolArgs });
+                    const toolLatencyMs = Date.now() - toolStartMs;
+                    tracer.toolError({ traceId, step: stepCount, tool: toolName, latency_ms: toolLatencyMs, error: err.message });
                     toolResult = `SYSTEM ERROR: ${err.message}. YOU MUST TELL THE USER YOU ENCOUNTERED A TECHNICAL ERROR AND CANNOT PROCEED WITH THIS ACTION.`;
                   }
                 } else {
                   toolResult = `Error: Tool '${toolName}' does not exist or was removed.`;
-                  logger.warn(`Model hallucinated unknown tool: ${toolName}`);
+                  tracer.unknownTool({ traceId, step: stepCount, tool: toolName });
                 }
 
                 openaiMessages.push({
@@ -406,7 +507,6 @@ export async function POST(req: Request) {
               // Continue loop to get the next response
             } else {
               // No tool calls — this is the final text response
-              keepGenerating = false;
               let finalText = assistantMessage.content || '';
               
               if (!finalText.trim() && stepCount > 1) {
@@ -415,8 +515,27 @@ export async function POST(req: Request) {
 
               // Apply output guardrails
               const { text: safeFinalText, requiresDisclaimer } = guardrails.filterOutput(finalText);
+
+              // P0 Circuit-Breaker: if response has a multi-goal plan table but
+              // reconcile_plan was NOT called this turn, loop back to Supervisor.
+              if (checkReconciliationGap(safeFinalText, thisRoundToolNames)) {
+                tracer.circuitBreaker({ traceId, step: stepCount, tools_this_turn: thisRoundToolNames });
+                openaiMessages.push({
+                  role: 'user',
+                  content: 'SYSTEM GUARDRAIL: Your response contains a multi-goal financial plan table, but you did not call reconcile_plan this turn. You MUST call reconcile_plan now (pass monthly_surplus and all goal SIPs) before writing your final answer. Do not stream anything yet.',
+                });
+                // Continue loop — do NOT set keepGenerating = false
+                continue;
+              }
+
+              keepGenerating = false;
               if (safeFinalText !== finalText) {
-                logger.warn('Output Guardrail triggered on final text.', { original: finalText, sanitized: safeFinalText });
+                tracer.outputGuardrail({
+                  traceId,
+                  step: stepCount,
+                  original_length: finalText.length,
+                  sanitized_length: safeFinalText.length,
+                });
                 finalText = safeFinalText;
               }
 
@@ -462,8 +581,8 @@ export async function POST(req: Request) {
 
           if (keepGenerating && stepCount >= MAX_STEPS) {
             // We hit the step limit but never sent a final text response.
-            // Send a fallback response so the UI doesn't hang in a 'Failed' state.
-            const fallbackText = "I have processed your request, but the operation was too complex to complete. Please try asking a more specific question.";
+            // Send a human-friendly fallback so the UI doesn't hang in a 'Failed' state.
+            const fallbackText = "I'm having a bit of trouble completing this full calculation in one go — it involved more steps than I could process together. Let me connect you with an Octaraa wealth expert who can work through all the details with you personally. Would you like me to arrange a callback?";
             const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
             sendEvent('message_id', aiMessageId);
             
@@ -497,6 +616,23 @@ export async function POST(req: Request) {
           }
 
           controller.close();
+
+          // ── Observability: Turn summary ────────────────────────────────────
+          const totalTokens = totalPromptTokens + totalCompletionTokens;
+          const estimatedCostUsd = (totalTokens / 1_000_000) * 0.50;
+          tracer.turnEnd({
+            traceId,
+            userId: user_id,
+            sessionId: session_id,
+            total_latency_ms: Date.now() - turnStartMs,
+            steps: stepCount,
+            tools_called: toolCallLog,
+            prompt_tokens: totalPromptTokens,
+            completion_tokens: totalCompletionTokens,
+            total_tokens: totalTokens,
+            estimated_cost_usd: +estimatedCostUsd.toFixed(6),
+          });
+
         } catch (error: any) {
           logger.error('Stream error in chat route', { error: error.message });
           controller.error(error);

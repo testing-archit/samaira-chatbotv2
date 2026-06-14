@@ -279,7 +279,14 @@ ${historyText}`;
           return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
         }
 
-        const results = await vectorSearch(query, null);
+        // P1 FIX: Filter by 'finance_education' namespace to prevent promotional/Octaraa
+        // marketing content from surfacing in neutral educational answers.
+        // Falls back to unfiltered if the namespace has no tagged vectors yet.
+        let results = await vectorSearch(query, 'finance_education');
+        if (results.length === 0) {
+          logger.warn('[RAG] finance_education namespace returned 0 results — falling back to unfiltered search', { query: query.substring(0, 60) });
+          results = await vectorSearch(query, null);
+        }
         const context_block = results.length > 0
           ? buildContext(results)
           : 'No specific facts found in knowledge base.';
@@ -383,12 +390,12 @@ ${historyText}`;
     },
 
     financial_calculator: {
-      description: 'Calculate mathematical financial projections including SIP, Lumpsum, EMI, Step-Up SIP, SWP, PPF, SSY, CAGR, Retirement, Income Tax, etc.',
+      description: 'Calculate mathematical financial projections including SIP, Lumpsum, EMI, Step-Up SIP, SWP, PPF, SSY, CAGR, Retirement, Income Tax, Emergency Fund gap, etc.',
       parameters: z.object({
-        type: z.enum(['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax', 'menu']).describe('Type of calculation'),
-        principal: z.number().optional().describe('Monthly amount, lumpsum amount, loan principal, or current cost'),
-        rate: z.number().optional().describe('Annual interest rate percentage (e.g. 12 for 12%)'),
-        years: z.number().optional().describe('Time horizon in years'),
+        type: z.enum(['sip', 'lumpsum', 'emi', 'college_cost', 'step_up_sip', 'target_sip', 'cost_of_delay', 'fd', 'rd', 'swp', 'cagr', 'retirement', 'ppf', 'ssy', 'income_tax', 'emergency_fund', 'menu']).describe('Type of calculation. Use emergency_fund to compute the one-time top-up gap (not a monthly SIP).'),
+        principal: z.number().optional().describe('Monthly amount, lumpsum amount, loan principal, current cost, or monthly_expenses for emergency_fund'),
+        rate: z.number().optional().describe('Annual interest rate percentage (e.g. 12 for 12%), or current_emergency_fund_amount for emergency_fund type'),
+        years: z.number().optional().describe('Time horizon in years, or target_months for emergency_fund type'),
         inflation_rate: z.number().optional().describe('Inflation rate percentage'),
         step_up_rate: z.number().optional().describe('Annual increase percentage for SIPs'),
         target_amount: z.number().optional().describe('Target corpus amount'),
@@ -522,13 +529,77 @@ ${historyText}`;
           }
           if (income <= 700000) newTax = 0; 
           return `Income Tax Result (Simplified):\nIncome: ₹${income.toLocaleString('en-IN')}\nTax under Old Regime: ₹${Math.round(oldTax).toLocaleString('en-IN')}\nTax under New Regime: ₹${Math.round(newTax).toLocaleString('en-IN')}`;
+        } else if (type === 'emergency_fund') {
+          // P0 FIX: Emergency fund is a ONE-TIME gap calculation, NOT a recurring monthly SIP.
+          // principal = monthly_expenses, rate = current_emergency_fund_amount, years = target_months
+          const targetMonths = years || 6; // default to 6-month emergency fund
+          const monthlyExpenses = principal;
+          const currentFund = rate; // reuse 'rate' param to pass current fund amount
+          const targetFund = monthlyExpenses * targetMonths;
+          const gap = Math.max(0, targetFund - currentFund);
+          const alreadyMet = gap === 0;
+          return `Emergency Fund Result:\n- Monthly Expenses: ₹${Math.round(monthlyExpenses).toLocaleString('en-IN')}\n- Target (${targetMonths} months): ₹${Math.round(targetFund).toLocaleString('en-IN')}\n- Existing Fund: ₹${Math.round(currentFund).toLocaleString('en-IN')}\n- One-time top-up needed: ₹${Math.round(gap).toLocaleString('en-IN')}\n\n${alreadyMet ? '✅ Emergency fund is already fully funded — no top-up required.' : `⚠️ ACTION REQUIRED: This ₹${Math.round(gap).toLocaleString('en-IN')} is a ONE-TIME top-up to a liquid savings account (not a monthly SIP). Do NOT include this in the recurring monthly goal table. Suggest the user set aside this amount from savings or a bonus.`}`;
         }
         
         return "Unknown calculation type.";
       },
     },
 
-    capture_lead: {
+    // ─── reconcile_plan — P0 Mandatory Feasibility Gate ────────────────────────
+    // Deterministic tool: sums per-goal SIPs against monthly surplus.
+    // MUST be called before writing any multi-goal financial plan response.
+    // Same reasoning as financial_calculator — don't trust the LLM with arithmetic.
+    reconcile_plan: {
+      description: 'MANDATORY before writing any multi-goal financial plan. Sums all goal SIPs against monthly surplus to check feasibility and produce a reallocation if over-budget. Also surfaces the emergency fund gap as a one-time top-up (NOT a monthly line item). Call this after all financial_calculator calls are complete.',
+      parameters: z.object({
+        monthly_surplus: z.number().describe('User\'s monthly surplus in INR after all expenses'),
+        goal_sips: z.array(z.object({
+          name: z.string().describe('Goal name (e.g. House, Retirement, Vacation)'),
+          monthly_sip: z.number().describe('Monthly SIP computed for this goal')
+        })).describe('Array of goals with their computed monthly SIP amounts'),
+        emergency_fund_gap_oneoff: z.number().optional().describe('One-time emergency fund shortfall in INR (from financial_calculator emergency_fund type). Pass 0 if fully funded.')
+      }),
+      execute: async ({ monthly_surplus, goal_sips, emergency_fund_gap_oneoff = 0 }: { monthly_surplus: number; goal_sips: Array<{ name: string; monthly_sip: number }>; emergency_fund_gap_oneoff?: number }) => {
+        logger.info('Tool call: reconcile_plan', { monthly_surplus, goal_count: goal_sips.length, emergency_fund_gap_oneoff });
+
+        if (!goal_sips || goal_sips.length === 0) {
+          return 'Error: No goal SIPs provided. Call financial_calculator for each goal first, then pass results here.';
+        }
+
+        const totalSip = goal_sips.reduce((sum, g) => sum + g.monthly_sip, 0);
+        const gap = totalSip - monthly_surplus;
+        const feasible = gap <= 0;
+        const headroom = -gap;
+
+        const goalLines = goal_sips
+          .map(g => `  - ${g.name}: ₹${Math.round(g.monthly_sip).toLocaleString('en-IN')}/mo`)
+          .join('\n');
+
+        let summary: string;
+        if (feasible) {
+          summary = `✅ PLAN IS FEASIBLE\nTotal SIP (₹${Math.round(totalSip).toLocaleString('en-IN')}/mo) fits within monthly surplus (₹${Math.round(monthly_surplus).toLocaleString('en-IN')}/mo).\nHeadroom: ₹${Math.round(headroom).toLocaleString('en-IN')}/mo available for additional goals or savings buffer.`;
+        } else {
+          // Proportional reallocation: scale each SIP down so total = surplus
+          const reallocated = goal_sips.map(g => ({
+            name: g.name,
+            original: g.monthly_sip,
+            adjusted: Math.round(g.monthly_sip * (monthly_surplus / totalSip))
+          }));
+          const reallocLines = reallocated
+            .map(g => `  - ${g.name}: ₹${g.original.toLocaleString('en-IN')} → ₹${g.adjusted.toLocaleString('en-IN')}/mo`)
+            .join('\n');
+          summary = `⚠️ PLAN EXCEEDS SURPLUS BY ₹${Math.round(gap).toLocaleString('en-IN')}/mo\nProportional reallocation to fit within ₹${Math.round(monthly_surplus).toLocaleString('en-IN')}/mo surplus:\n${reallocLines}\n\nPresent the reallocated amounts to the user and explain the trade-offs.`;
+        }
+
+        const efNote = emergency_fund_gap_oneoff > 0
+          ? `\n💡 EMERGENCY FUND (one-time, NOT monthly): The user needs a ₹${Math.round(emergency_fund_gap_oneoff).toLocaleString('en-IN')} one-time top-up to a liquid savings account. This is SEPARATE from the monthly SIP table above.`
+          : `\n✅ Emergency fund: No top-up required.`;
+
+        return `RECONCILIATION RESULT:\nGoal SIPs:\n${goalLines}\nTotal SIP Required: ₹${Math.round(totalSip).toLocaleString('en-IN')}/mo\nMonthly Surplus Available: ₹${Math.round(monthly_surplus).toLocaleString('en-IN')}/mo\n\n${summary}${efNote}\n\nINSTRUCTION: Use the reconciled numbers above (not the raw financial_calculator outputs) in your final answer to the user.`;
+      },
+    },
+
+    request_callback: {
       description: 'Capture contact details and query for callback or unresolved queries. Only specify phone if the user explicitly provided one.',
       parameters: z.object({
         name: z.string().optional(),
@@ -536,7 +607,7 @@ ${historyText}`;
         query: z.string()
       }),
       execute: async ({ name, phone, query }: { name?: string; phone?: string; query: string }) => {
-        logger.info('Tool call: capture_lead', { name, phone, query });
+        logger.info('Tool call: request_callback', { name, phone, query });
         
         let userEmail: string | null = null;
         try {

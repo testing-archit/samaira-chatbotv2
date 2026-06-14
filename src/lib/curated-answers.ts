@@ -1,4 +1,5 @@
 import { logger } from './logger';
+import { CURATED_DICTIONARY } from './curated-answers-dict';
 
 export function getCuratedAnswer(query: string): string | null {
   const q = query
@@ -25,6 +26,10 @@ export function getCuratedAnswer(query: string): string | null {
     .replace(/[?.,\/#!$%\^&\*;:{}=\-_`~()'"]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  if (CURATED_DICTIONARY[q]) {
+    return CURATED_DICTIONARY[q];
+  }
 
   // Q1: What is Octaraa
   if (q === "what is octaraa" || q === "what is octaraa and how does it help families") {
