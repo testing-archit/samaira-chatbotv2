@@ -3,6 +3,7 @@ import { logger } from '@/lib/logger';
 import { getTools } from '@/lib/tools';
 import { config } from '@/lib/config';
 import { sql } from '@/lib/db';
+import { getCuratedAnswer } from '@/lib/curated-answers';
 
 export const preferredRegion = 'bom1'; // Deploy to Mumbai for low latency
 export const maxDuration = 60; // Allow up to 60 seconds for LLM responses
@@ -268,6 +269,47 @@ export async function POST(req: Request) {
         return new Response(err.message, { status: 400 });
       }
     }
+
+    // Intercept with curated answers to avoid latency, rate limits and guarantee precision
+    const curated = getCuratedAnswer(latestMessage.content);
+    if (curated) {
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const sendEvent = (type: string, data: any) => {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type, data })}\n\n`));
+          };
+          try {
+            const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
+            sendEvent('message_id', aiMessageId);
+            
+            // Stream the text chunk-by-chunk for smooth UI experience
+            const words = curated.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              sendEvent('text', (i === 0 ? '' : ' ') + words[i]);
+              await new Promise(r => setTimeout(r, 8));
+            }
+            
+            // Insert Assistant Message into DB
+            await sql`
+              INSERT INTO messages (id, session_id, role, content, requires_disclaimer)
+              VALUES (${aiMessageId}, ${session_id}, 'assistant', ${curated}, false)
+            `;
+            controller.close();
+          } catch (error: any) {
+            controller.error(error);
+          }
+        }
+      });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+
 
     const toolsImpl = getTools({
       sessionId: session_id,
