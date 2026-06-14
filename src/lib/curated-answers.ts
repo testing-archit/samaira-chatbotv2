@@ -179,6 +179,15 @@ Key benefits include:
 On Octaraa, mutual fund SIP investments are listed as coming soon. Would you like to use our SIP calculator to estimate potential returns?`;
   }
 
+  // Q20b: How to setup SIP
+  if (q.includes("how to setup sip") || q.includes("how to set up a sip") || q.includes("how to invest in sip") || q.includes("start a sip")) {
+    return `Currently, direct mutual fund and **SIP investments are listed as "coming soon"** on the Octaraa platform. 
+
+For now, you can book secure Fixed Deposits (FDs) and Recurring Deposits (RDs) with our partner banks, or use our suite of financial calculators to plan and project your future SIP returns.
+
+Would you like to try the SIP Calculator or set up a new family goal?`;
+  }
+
   // Q21: What is goal-based investing
   if (q === "what is goalbased investing" || q === "what is goal based investing") {
     return `**Goal-based investing** is an approach where you invest money specifically aligned to real-life family milestones (like a child's higher education, purchasing a home, or retirement) rather than chasing short-term market returns. It ensures your investments match your target timeline and risk tolerance.
@@ -264,7 +273,7 @@ Would you like to calculate returns for a specific FD amount and tenure?`;
 
   // Q32: What calculators does Octaraa offer
   if (q === "what calculators does octaraa offer" || q.includes("what calculators")) {
-    return `Octaraa offers a suite of **14 financial calculators** designed to simplify your family wealth planning:
+    return `Octaraa offers a suite of **16 financial calculators** designed to simplify your family wealth planning:
 1. **College Cost** / Future Fees Prediction Calculator
 2. **SIP Calculator**
 3. **Step Up SIP**
@@ -276,9 +285,11 @@ Would you like to calculate returns for a specific FD amount and tenure?`;
 9. **Recurring Deposits**
 10. **SWP Calculator**
 11. **XIRR Calculator**
-12. **Sukanya Samriddhi Yojana (SSY)**
+12. **Sukanya Samriddhi Yojana Calculator**
 13. **PPF Calculator**
-14. **Retirement Calculator**
+14. **Income Tax Calculator**
+15. **CAGR Calculator**
+16. **Retirement Calculator**
 
 Which calculator would you like to explore first?`;
   }
@@ -415,20 +426,7 @@ Would you like me to arrange a callback with our security team?`;
 Would you like to learn more about our privacy policy?`;
   }
 
-  // Q51, Q52, Q53: Support & contact details
-  if (q.includes("contact") || q.includes("email address") || q.includes("support hours") || q.includes("support team")) {
-    return `You can contact Octaraa's support team directly:
-- **Email**: connect@octaraa.com
-- **Phone**: +91 9667708843
-- **Support Hours**: 9:00 AM – 8:00 PM, Monday through Sunday.
 
-Would you like to share your contact details and query so an expert can call you back?`;
-  }
-
-  // Q54: Can I speak to a financial expert at Octaraa
-  if (q.includes("speak to a financial expert") || q.includes("financial expert")) {
-    return `Yes, you can speak to a financial expert. Please provide your phone number and details of your query, and we will arrange a callback from an Octaraa representative.`;
-  }
 
   // Q55: Can you tell me which stocks to buy
   if (q.includes("which stocks to buy") || q.includes("stocks to buy")) {

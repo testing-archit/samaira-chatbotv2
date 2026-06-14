@@ -126,7 +126,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'capture_lead',
-      description: 'Capture user contact details and query to have a representative call them back. Use this when the user needs more help, asks to speak to a human, or asks a question the system cannot answer. If they are not logged in, you must ask for their phone number before calling this tool. DO NOT invent/hallucinate a phone number.',
+      description: 'Capture user contact details and query to have a representative call them back. Use this when the user needs more help, asks to speak to a human, asks for support contact details, or asks a question the system cannot answer. If they are not logged in, you must ask for their phone number before calling this tool (or call it with just the query if they are asking for an email immediately). DO NOT invent/hallucinate a phone number.',
       parameters: {
         type: 'object',
         properties: {
@@ -174,7 +174,7 @@ ROUTING RULES (MANDATORY):
   2. If it is about an AMC, provide a list of the top 5 AMCs in India.
   3. Politely ask if they would like to leave their contact details (phone number and query) so an Octaraa representative or wealth expert can call them back to help with their query.
   4. If they provide their contact details, call 'capture_lead'.
-- When a user at ANY time explicitly asks for more help, wants to speak to a human, or provides their contact information for a callback, acknowledge them and call 'capture_lead'. You MUST ensure you have their phone and query first. Do NOT ask for their name if you already know it from the context.
+- When a user at ANY time explicitly asks for more help, wants to speak to a human, asks for support contact details, or provides their contact information for a callback, you MUST acknowledge them, provide the contact info if relevant, and IMMEDIATELY call 'capture_lead' with their query. DO NOT wait for them to provide a phone number, you can call it without a phone number. Do NOT ask for their name if you already know it from the context.
 
 SUPERVISOR RULES:
 - IMPORTANT: When you call a tool, that tool returns a FULLY WRITTEN AND SYNTHESIZED RESPONSE.

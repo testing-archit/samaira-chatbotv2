@@ -1511,8 +1511,15 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                       return null;
                     })}
                     {m.requiresDisclaimer && (
-                      <div className="disclaimer-compact">
-                        Educational only, not financial advice &middot; connect@octaraa.com
+                      <div className="disclaimer-compact" style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-start' }}>
+                        <div className="disclaimer-primary">
+                          <strong>Educational only, not financial advice.</strong> Samaira is an AI and can make mistakes.
+                        </div>
+                        <div className="disclaimer-secondary" style={{ justifyContent: 'flex-start' }}>
+                          <a href="mailto:connect@octaraa.com">connect@octaraa.com</a>
+                          <span className="disclaimer-separator">&bull;</span>
+                          <span>+91 9667708843 (9:00 AM - 8:00 PM)</span>
+                        </div>
                       </div>
                     )}
                     {m.role === 'assistant' && (
@@ -1556,9 +1563,16 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
             {isLoading ? <Loader2 size={20} className="spinning" /> : <SendHorizontal size={20} />}
           </button>
         </form>
-        <p className="input-disclaimer">
-          Samaira provides educational insights only, not financial advice.
-        </p>
+        <div className="input-disclaimer">
+          <div className="disclaimer-primary">
+            <strong>Educational only, not financial advice.</strong> Samaira is an AI and can make mistakes.
+          </div>
+          <div className="disclaimer-secondary">
+            <a href="mailto:connect@octaraa.com">connect@octaraa.com</a>
+            <span className="disclaimer-separator">&bull;</span>
+            <span>+91 9667708843 (9:00 AM - 8:00 PM)</span>
+          </div>
+        </div>
       </div>
 
       {/* Custom Delete Confirmation Modal */}
