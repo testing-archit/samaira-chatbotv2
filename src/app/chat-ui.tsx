@@ -348,6 +348,18 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 
 
 // ─── Generative UI Chart Component ───
+const formatCurrency = (val: number) => {
+  if (!val || isNaN(val)) return '₹0';
+  let formatted = `₹${val.toLocaleString('en-IN')}`;
+  let word = '';
+  if (val >= 10000000) {
+    word = ` (${(val / 10000000).toFixed(2).replace(/\.00$/, '')} Cr)`;
+  } else if (val >= 100000) {
+    word = ` (${(val / 100000).toFixed(2).replace(/\.00$/, '')} L)`;
+  }
+  return formatted + word;
+};
+
 function CalculatorChart({ args, append }: { args: any, append?: any }) {
   const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
   const initialType = parsedArgs?.type || 'sip';
@@ -358,7 +370,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   }, [parsedArgs?.type]);
 
   const [params, setParams] = useState({
-    principal: parsedArgs?.principal || (parsedArgs?.type === 'income_tax' ? 1000000 : parsedArgs?.type === 'cagr' ? 1000000 : 100000),
+    principal: parsedArgs?.principal || (parsedArgs?.type === 'income_tax' ? 1200000 : parsedArgs?.type === 'cagr' ? 1000000 : 100000),
     rate: parsedArgs?.rate || 12,
     years: parsedArgs?.years || (parsedArgs?.type === 'cagr' ? 5 : 10),
     step_up_rate: parsedArgs?.step_up_rate || 10,
@@ -368,6 +380,60 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
     delay_years: parsedArgs?.delay_years || 3,
     final_amount: parsedArgs?.final_amount || 2000000,
   });
+
+  useEffect(() => {
+    // Set appropriate defaults when switching calculator types from the menu
+    if (activeCalc === 'income_tax') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 100000 ? 1200000 : prev.principal // 12 Lakhs is a much better default for income tax
+      }));
+    } else if (activeCalc === 'cagr') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 100000 ? 1000000 : prev.principal,
+        final_amount: prev.final_amount === 2000000 ? 2500000 : prev.final_amount,
+        years: prev.years === 10 ? 5 : prev.years
+      }));
+    } else if (activeCalc === 'target_sip') {
+      setParams(prev => ({
+        ...prev,
+        target_amount: prev.target_amount || 10000000,
+        years: prev.years === 5 ? 10 : prev.years,
+        rate: prev.rate || 12
+      }));
+    } else if (activeCalc === 'cost_of_delay') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 100000 || prev.principal === 1200000 ? 10000 : prev.principal, // 10k monthly SIP is a better cost of delay default
+        delay_years: prev.delay_years || 3,
+        years: prev.years || 10,
+        rate: prev.rate || 12
+      }));
+    } else if (activeCalc === 'retirement') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 100000 || prev.principal === 1200000 ? 50000 : prev.principal, // 50k monthly expense
+        years: prev.years === 10 ? 25 : prev.years, // 25 years to retirement
+        delay_years: prev.delay_years || 20, // 20 years post-retirement
+        rate: prev.rate || 12,
+        inflation_rate: prev.inflation_rate || 6
+      }));
+    } else if (activeCalc === 'swp') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 100000 || prev.principal === 1200000 ? 10000000 : prev.principal, // 1 Crore corpus
+        withdrawal_amount: prev.withdrawal_amount || 60000, // 60k withdrawal
+        years: prev.years || 15,
+        rate: prev.rate || 8
+      }));
+    } else if (activeCalc === 'sip' || activeCalc === 'rd') {
+      setParams(prev => ({
+        ...prev,
+        principal: prev.principal === 1000000 || prev.principal === 1200000 ? 10000 : prev.principal // reset to 10k monthly if it was set to a tax/cagr default
+      }));
+    }
+  }, [activeCalc]);
 
   if (!parsedArgs || !parsedArgs.type) return null;
 
@@ -875,6 +941,11 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               onChange={(e) => handleParamChange('principal', Number(e.target.value))}
               style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
+            {params.principal > 0 && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {formatCurrency(params.principal)}
+              </span>
+            )}
           </div>
         )}
         
@@ -888,6 +959,11 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               onChange={(e) => handleParamChange('target_amount', Number(e.target.value))}
               style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
+            {params.target_amount > 0 && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {formatCurrency(params.target_amount)}
+              </span>
+            )}
           </div>
         )}
 
@@ -901,6 +977,11 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               onChange={(e) => handleParamChange('final_amount', Number(e.target.value))}
               style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
+            {params.final_amount > 0 && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {formatCurrency(params.final_amount)}
+              </span>
+            )}
           </div>
         )}
 
@@ -968,6 +1049,11 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               onChange={(e) => handleParamChange('withdrawal_amount', Number(e.target.value))}
               style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
             />
+            {params.withdrawal_amount > 0 && (
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                {formatCurrency(params.withdrawal_amount)}
+              </span>
+            )}
           </div>
         )}
 
