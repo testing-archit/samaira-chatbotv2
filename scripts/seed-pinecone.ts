@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { Pinecone } from '@pinecone-database/pinecone';
-import { model } from '../src/lib/model';
+let model: any;
 
 const pc = new Pinecone({ apiKey: process.env.PINECONE_API_KEY as string });
 const INDEX_NAME = 'octaraa-kb-v2';
@@ -143,6 +143,9 @@ async function ingestJsonFile(filePath: string, kbType: string) {
 }
 
 async function main() {
+  const modelModule = await import('../src/lib/model');
+  model = modelModule.model;
+
   await createIndexIfNotExists();
   
   await ingestJsonFile(path.join(__dirname, '../octaraa-kb-clean.json'), 'octaraa');
