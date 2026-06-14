@@ -346,6 +346,7 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
   );
 }
 
+
 // ─── Generative UI Chart Component ───
 function CalculatorChart({ args, append }: { args: any, append?: any }) {
   const parsedArgs = typeof args === 'string' ? JSON.parse(args) : args;
@@ -357,18 +358,21 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   }, [parsedArgs?.type]);
 
   const [params, setParams] = useState({
-    principal: parsedArgs?.principal || 0,
-    rate: parsedArgs?.rate || 0,
-    years: parsedArgs?.years || 0,
-    step_up_rate: parsedArgs?.step_up_rate || 0,
-    withdrawal_amount: parsedArgs?.withdrawal_amount || 0,
-    inflation_rate: parsedArgs?.inflation_rate || 0,
+    principal: parsedArgs?.principal || (parsedArgs?.type === 'income_tax' ? 1000000 : parsedArgs?.type === 'cagr' ? 1000000 : 100000),
+    rate: parsedArgs?.rate || 12,
+    years: parsedArgs?.years || (parsedArgs?.type === 'cagr' ? 5 : 10),
+    step_up_rate: parsedArgs?.step_up_rate || 10,
+    withdrawal_amount: parsedArgs?.withdrawal_amount || 10000,
+    inflation_rate: parsedArgs?.inflation_rate || 6,
+    target_amount: parsedArgs?.target_amount || 10000000,
+    delay_years: parsedArgs?.delay_years || 3,
+    final_amount: parsedArgs?.final_amount || 2000000,
   });
 
   if (!parsedArgs || !parsedArgs.type) return null;
 
-  // We only chart time-series data
-  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost', 'menu'];
+  // We only chart time-series data or render interactive results
+  const chartableTypes = ['sip', 'lumpsum', 'emi', 'step_up_sip', 'swp', 'ppf', 'ssy', 'fd', 'rd', 'retirement', 'college_cost', 'target_sip', 'cost_of_delay', 'cagr', 'income_tax', 'menu'];
   if (!chartableTypes.includes(activeCalc)) return null;
 
   if (activeCalc === 'menu') {
@@ -519,7 +523,270 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       }
       data.push({ year: i, Balance: Math.max(0, Math.round(balance)) });
     }
+  } else if (activeCalc === 'target_sip') {
+    const monthlyRate = r / 12;
+    const nMonths = params.years * 12;
+    const requiredSip = monthlyRate > 0 ? params.target_amount / (((Math.pow(1 + monthlyRate, nMonths) - 1) / monthlyRate) * (1 + monthlyRate)) : params.target_amount / nMonths;
+    for (let i = 0; i <= params.years; i++) {
+      const months = i * 12;
+      const invested = requiredSip * months;
+      const futureValue = monthlyRate > 0 ? requiredSip * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
+      data.push({ year: i, Invested: Math.round(invested), Value: Math.round(futureValue) });
+    }
+  } else if (activeCalc === 'cost_of_delay') {
+    const monthlyRate = r / 12;
+    for (let i = 0; i <= params.years; i++) {
+      const months = i * 12;
+      const valueNow = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : params.principal * months;
+      
+      let valueDelayed = 0;
+      if (i > params.delay_years) {
+        const activeMonths = (i - params.delay_years) * 12;
+        valueDelayed = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, activeMonths) - 1) / monthlyRate) * (1 + monthlyRate) : params.principal * activeMonths;
+      }
+      data.push({ 
+        year: i, 
+        "Value (Now)": Math.round(valueNow), 
+        "Value (Delayed)": Math.round(valueDelayed) 
+      });
+    }
+  } else if (activeCalc === 'cagr') {
+    const cagrVal = params.principal > 0 ? Math.pow(params.final_amount / params.principal, 1 / params.years) - 1 : 0;
+    for (let i = 0; i <= params.years; i++) {
+      const futureValue = params.principal * Math.pow(1 + cagrVal, i);
+      data.push({ year: i, Value: Math.round(futureValue) });
+    }
+  } else if (activeCalc === 'retirement') {
+    const infRate = params.inflation_rate / 100;
+    const realReturnRate = ((1 + r) / (1 + infRate)) - 1;
+    const postYears = params.delay_years || 20;
+    for (let i = 0; i <= params.years; i++) {
+      const futureExpense = params.principal * Math.pow(1 + infRate, i);
+      const annualRetirementExpense = futureExpense * 12;
+      const requiredCorpus = realReturnRate > 0 
+        ? annualRetirementExpense * ((1 - Math.pow(1 + realReturnRate, -postYears)) / realReturnRate)
+        : annualRetirementExpense * postYears;
+      data.push({ year: i, "Required Corpus": Math.round(requiredCorpus) });
+    }
   }
+
+  const getSummary = () => {
+    if (activeCalc === 'sip' || activeCalc === 'rd') {
+      const monthlyRate = r / 12;
+      const months = params.years * 12;
+      const invested = params.principal * months;
+      const futureValue = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : invested;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Invested: <strong>₹{Math.round(invested).toLocaleString('en-IN')}</strong></div>
+          <div>Wealth Gain: <strong>₹{Math.round(futureValue - invested).toLocaleString('en-IN')}</strong></div>
+          <div>Total Value: <strong style={{ color: '#3b82f6' }}>₹{Math.round(futureValue).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'step_up_sip') {
+      let totalInvested = 0;
+      let currentMonthlySIP = params.principal;
+      let futureValue = 0;
+      const monthlyRate = r / 12;
+      for (let y = 1; y <= params.years; y++) {
+        for (let m = 1; m <= 12; m++) {
+          totalInvested += currentMonthlySIP;
+          futureValue = (futureValue + currentMonthlySIP) * (1 + monthlyRate);
+        }
+        currentMonthlySIP += currentMonthlySIP * (params.step_up_rate / 100);
+      }
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Total Invested: <strong>₹{Math.round(totalInvested).toLocaleString('en-IN')}</strong></div>
+          <div>Wealth Gain: <strong>₹{Math.round(futureValue - totalInvested).toLocaleString('en-IN')}</strong></div>
+          <div>Total Value: <strong style={{ color: '#3b82f6' }}>₹{Math.round(futureValue).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'lumpsum' || activeCalc === 'fd') {
+      const futureValue = params.principal * Math.pow(1 + r, params.years);
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Invested: <strong>₹{Math.round(params.principal).toLocaleString('en-IN')}</strong></div>
+          <div>Wealth Gain: <strong>₹{Math.round(futureValue - params.principal).toLocaleString('en-IN')}</strong></div>
+          <div>Total Value: <strong style={{ color: '#3b82f6' }}>₹{Math.round(futureValue).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'emi') {
+      const monthlyRate = r / 12;
+      const totalMonths = params.years * 12;
+      const emi = monthlyRate > 0 ? params.principal * monthlyRate * Math.pow(1 + monthlyRate, totalMonths) / (Math.pow(1 + monthlyRate, totalMonths) - 1) : params.principal / totalMonths;
+      const totalPayment = emi * totalMonths;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Monthly EMI: <strong style={{ color: '#ef4444' }}>₹{Math.round(emi).toLocaleString('en-IN')}</strong></div>
+          <div>Total Interest: <strong>₹{Math.round(totalPayment - params.principal).toLocaleString('en-IN')}</strong></div>
+          <div>Total Payment: <strong>₹{Math.round(totalPayment).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'college_cost') {
+      const infRate = params.inflation_rate / 100;
+      const futureCost = params.principal * Math.pow(1 + infRate, params.years);
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Current Cost: <strong>₹{params.principal.toLocaleString('en-IN')}</strong></div>
+          <div>Future Cost (in {params.years} yrs): <strong style={{ color: '#f59e0b' }}>₹{Math.round(futureCost).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'retirement') {
+      const infRate = params.inflation_rate / 100;
+      const realReturnRate = ((1 + r) / (1 + infRate)) - 1;
+      const postYears = params.delay_years || 20;
+      const futureExpense = params.principal * Math.pow(1 + infRate, params.years);
+      const annualRetirementExpense = futureExpense * 12;
+      const requiredCorpus = realReturnRate > 0 
+        ? annualRetirementExpense * ((1 - Math.pow(1 + realReturnRate, -postYears)) / realReturnRate)
+        : annualRetirementExpense * postYears;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Future Monthly Expense: <strong>₹{Math.round(futureExpense).toLocaleString('en-IN')}</strong></div>
+          <div>Required Corpus: <strong style={{ color: '#a855f7' }}>₹{Math.round(requiredCorpus).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'swp') {
+      let balance = params.principal;
+      const monthlyRate = r / 12;
+      let totalWithdrawn = 0;
+      let depletedMonths = 0;
+      for (let m = 1; m <= params.years * 12; m++) {
+        balance = balance * (1 + monthlyRate) - params.withdrawal_amount;
+        if (balance < 0) {
+          totalWithdrawn += (params.withdrawal_amount + balance);
+          depletedMonths = m;
+          break;
+        }
+        totalWithdrawn += params.withdrawal_amount;
+      }
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Total Withdrawn: <strong>₹{Math.round(totalWithdrawn).toLocaleString('en-IN')}</strong></div>
+          {balance < 0 ? (
+            <div style={{ color: '#ef4444' }}>Depleted in: <strong>{Math.floor(depletedMonths / 12)} Yr {depletedMonths % 12} Mo</strong></div>
+          ) : (
+            <div>Remaining Balance: <strong style={{ color: '#10b981' }}>₹{Math.round(balance).toLocaleString('en-IN')}</strong></div>
+          )}
+        </div>
+      );
+    }
+    if (activeCalc === 'ppf') {
+      const ppfRate = 0.071;
+      let balance = 0;
+      let invested = 0;
+      for (let y = 1; y <= 15; y++) {
+        invested += params.principal;
+        balance = (balance + params.principal) * (1 + ppfRate);
+      }
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Invested (15 Yrs): <strong>₹{invested.toLocaleString('en-IN')}</strong></div>
+          <div>Total PPF Value: <strong style={{ color: '#3b82f6' }}>₹{Math.round(balance).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'ssy') {
+      const ssyRate = 0.082;
+      let balance = 0;
+      let invested = 0;
+      for (let y = 1; y <= 21; y++) {
+        if (y <= 15) { invested += params.principal; balance += params.principal; }
+        balance = balance * (1 + ssyRate);
+      }
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Invested (15 Yrs): <strong>₹{invested.toLocaleString('en-IN')}</strong></div>
+          <div>Total SSY Value: <strong style={{ color: '#3b82f6' }}>₹{Math.round(balance).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'target_sip') {
+      const monthlyRate = r / 12;
+      const nMonths = params.years * 12;
+      const requiredSip = monthlyRate > 0 ? params.target_amount / (((Math.pow(1 + monthlyRate, nMonths) - 1) / monthlyRate) * (1 + monthlyRate)) : params.target_amount / nMonths;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Target Corpus: <strong>₹{params.target_amount.toLocaleString('en-IN')}</strong></div>
+          <div>Required Monthly SIP: <strong style={{ color: '#10b981' }}>₹{Math.round(requiredSip).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'cost_of_delay') {
+      const monthlyRate = r / 12;
+      const months = params.years * 12;
+      const valueNow = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate) : params.principal * months;
+      const activeMonths = Math.max(0, (params.years - params.delay_years) * 12);
+      const valueDelayed = monthlyRate > 0 ? params.principal * ((Math.pow(1 + monthlyRate, activeMonths) - 1) / monthlyRate) * (1 + monthlyRate) : params.principal * activeMonths;
+      const costOfDelay = valueNow - valueDelayed;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>Wealth (No Delay): <strong>₹{Math.round(valueNow).toLocaleString('en-IN')}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>Wealth ({params.delay_years} Yr Delay): <strong>₹{Math.round(valueDelayed).toLocaleString('en-IN')}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border)', paddingTop: '0.4rem' }}>Cost of Delay: <strong style={{ color: '#ef4444' }}>₹{Math.round(costOfDelay).toLocaleString('en-IN')}</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'cagr') {
+      const cagrVal = params.principal > 0 ? Math.pow(params.final_amount / params.principal, 1 / params.years) - 1 : 0;
+      return (
+        <div style={{ padding: '0.8rem', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.85rem' }}>
+          <div>Initial: <strong>₹{params.principal.toLocaleString('en-IN')}</strong></div>
+          <div>Final: <strong>₹{params.final_amount.toLocaleString('en-IN')}</strong></div>
+          <div>CAGR: <strong style={{ color: '#10b981' }}>{(cagrVal * 100).toFixed(2)}%</strong></div>
+        </div>
+      );
+    }
+    if (activeCalc === 'income_tax') {
+      const income = params.principal;
+      let oldTax = 0;
+      if (income > 250000) {
+        if (income <= 500000) oldTax = (income - 250000) * 0.05;
+        else if (income <= 1000000) oldTax = 12500 + (income - 500000) * 0.20;
+        else oldTax = 112500 + (income - 1000000) * 0.30;
+      }
+      if (income <= 500000) oldTax = 0; 
+      let newTax = 0;
+      if (income > 300000) {
+        if (income <= 600000) newTax = (income - 300000) * 0.05;
+        else if (income <= 900000) newTax = 15000 + (income - 600000) * 0.10;
+        else if (income <= 1200000) newTax = 45000 + (income - 900000) * 0.15;
+        else if (income <= 1500000) newTax = 90000 + (income - 1200000) * 0.20;
+        else newTax = 150000 + (income - 1500000) * 0.30;
+      }
+      if (income <= 700000) newTax = 0; 
+      const diff = oldTax - newTax;
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ flex: 1, padding: '1rem', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Old Tax Regime</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '0.5rem' }}>₹{Math.round(oldTax).toLocaleString('en-IN')}</div>
+            </div>
+            <div style={{ flex: 1, padding: '1rem', borderRadius: '8px', background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.8rem', color: '#3b82f6' }}>New Tax Regime</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '0.5rem' }}>₹{Math.round(newTax).toLocaleString('en-IN')}</div>
+            </div>
+          </div>
+          {diff !== 0 && (
+            <div style={{ fontSize: '0.85rem', textAlign: 'center', color: diff > 0 ? '#10b981' : '#ef4444' }}>
+              {diff > 0 
+                ? `Save ₹${Math.round(diff).toLocaleString('en-IN')} under the New regime!` 
+                : `Save ₹${Math.round(-diff).toLocaleString('en-IN')} under the Old regime!`}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
 
   let title = 'Projection';
   if (activeCalc === 'sip') title = 'SIP Compounding Curve';
@@ -530,6 +797,12 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   if (activeCalc === 'ppf') title = 'PPF Wealth Creation (15 Yr)';
   if (activeCalc === 'ssy') title = 'SSY Wealth Creation (21 Yr)';
   if (activeCalc === 'college_cost') title = 'Inflation-Adjusted College Cost';
+  if (activeCalc === 'rd') title = 'Recurring Deposit Growth';
+  if (activeCalc === 'target_sip') title = 'Target Amount SIP Growth';
+  if (activeCalc === 'cost_of_delay') title = 'Cost of Delay Analysis';
+  if (activeCalc === 'cagr') title = 'CAGR Growth Curve';
+  if (activeCalc === 'retirement') title = 'Retirement Corpus Accumulation';
+  if (activeCalc === 'income_tax') title = 'Income Tax Comparison';
 
   return (
     <div style={{ width: '100%', marginTop: '1rem', marginBottom: '1rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
@@ -539,37 +812,100 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           <button onClick={() => setActiveCalc('menu')} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.8rem' }}>← Back to Menu</button>
         )}
       </div>
-      <div style={{ height: 250, width: '100%' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-            <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
-            <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
-            <Tooltip 
-              formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
-              labelFormatter={(label) => `Year ${label}`}
-              contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
-            />
-            {activeCalc !== 'emi' && activeCalc !== 'swp' && activeCalc !== 'college_cost' && <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />}
-            {activeCalc !== 'emi' && activeCalc !== 'swp' && activeCalc !== 'college_cost' && <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />}
-            {(activeCalc === 'emi' || activeCalc === 'swp') && <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />}
-            {activeCalc === 'college_cost' && <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
+
+      {activeCalc !== 'income_tax' && (
+        <div style={{ height: 250, width: '100%', marginBottom: '1.5rem' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+              <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
+              <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
+              <Tooltip 
+                formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
+                labelFormatter={(label) => `Year ${label}`}
+                contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
+              />
+              {['sip', 'lumpsum', 'step_up_sip', 'ppf', 'ssy', 'fd', 'rd'].includes(activeCalc) && (
+                <>
+                  <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Value" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                </>
+              )}
+              {activeCalc === 'target_sip' && (
+                <>
+                  <Line type="monotone" dataKey="Invested" stroke="#64748b" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Value" stroke="#10b981" strokeWidth={2} dot={false} />
+                </>
+              )}
+              {activeCalc === 'cost_of_delay' && (
+                <>
+                  <Line type="monotone" dataKey="Value (Now)" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="Value (Delayed)" stroke="#ef4444" strokeWidth={2} dot={false} />
+                </>
+              )}
+              {activeCalc === 'cagr' && (
+                <Line type="monotone" dataKey="Value" stroke="#10b981" strokeWidth={2} dot={false} />
+              )}
+              {activeCalc === 'retirement' && (
+                <Line type="monotone" dataKey="Required Corpus" stroke="#a855f7" strokeWidth={2} dot={false} />
+              )}
+              {(activeCalc === 'emi' || activeCalc === 'swp') && (
+                <Line type="monotone" dataKey="Balance" stroke="#ef4444" strokeWidth={2} dot={false} />
+              )}
+              {activeCalc === 'college_cost' && (
+                <Line type="monotone" dataKey="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {getSummary()}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Principal (₹)</label>
-          <input 
-            type="number" 
-            value={params.principal || ''} 
-            onChange={(e) => handleParamChange('principal', Number(e.target.value))}
-            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-          />
-        </div>
+        {/* Principal Input */}
+        {activeCalc !== 'target_sip' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {activeCalc === 'cagr' ? 'Initial Investment (₹)' : activeCalc === 'income_tax' ? 'Annual Income (₹)' : 'Principal / Monthly (₹)'}
+            </label>
+            <input 
+              type="number" 
+              value={params.principal || ''} 
+              onChange={(e) => handleParamChange('principal', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
         
-        {activeCalc !== 'college_cost' && activeCalc !== 'ppf' && activeCalc !== 'ssy' && (
+        {/* Target Amount Input */}
+        {activeCalc === 'target_sip' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Target Amount (₹)</label>
+            <input 
+              type="number" 
+              value={params.target_amount || ''} 
+              onChange={(e) => handleParamChange('target_amount', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {/* Final Amount Input */}
+        {activeCalc === 'cagr' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Final Amount (₹)</label>
+            <input 
+              type="number" 
+              value={params.final_amount || ''} 
+              onChange={(e) => handleParamChange('final_amount', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {/* Rate Input */}
+        {activeCalc !== 'college_cost' && activeCalc !== 'ppf' && activeCalc !== 'ssy' && activeCalc !== 'income_tax' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Rate (%)</label>
             <input 
@@ -581,16 +917,35 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
-          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Years</label>
-          <input 
-            type="number" 
-            value={params.years || ''} 
-            onChange={(e) => handleParamChange('years', Number(e.target.value))}
-            style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
-          />
-        </div>
+        {/* Years Input */}
+        {activeCalc !== 'income_tax' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Years</label>
+            <input 
+              type="number" 
+              value={params.years || ''} 
+              onChange={(e) => handleParamChange('years', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
 
+        {/* Delay Years / Post-retirement Years Input */}
+        {(activeCalc === 'cost_of_delay' || activeCalc === 'retirement') && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
+            <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              {activeCalc === 'retirement' ? 'Years Post-Retirement' : 'Delay (Years)'}
+            </label>
+            <input 
+              type="number" 
+              value={params.delay_years || ''} 
+              onChange={(e) => handleParamChange('delay_years', Number(e.target.value))}
+              style={{ padding: '0.4rem', borderRadius: '4px', border: '1px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {/* Step Up Input */}
         {activeCalc === 'step_up_sip' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Step Up (%)</label>
@@ -603,6 +958,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           </div>
         )}
 
+        {/* Withdrawal Input */}
         {activeCalc === 'swp' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Withdrawal (₹)</label>
@@ -615,7 +971,8 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
           </div>
         )}
 
-        {activeCalc === 'college_cost' && (
+        {/* Inflation Input */}
+        {(activeCalc === 'college_cost' || activeCalc === 'retirement') && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: '1 1 120px' }}>
             <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Inflation (%)</label>
             <input 
