@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -303,9 +303,8 @@ export default function AdminTracesPage() {
                       const isExpanded = expandedTurn === turn.trace_id;
                       const toolNames = (turn.tools_called ?? []).map((t: any) => t.tool);
                       return (
-                        <>
+                        <React.Fragment key={turn.trace_id}>
                           <tr
-                            key={turn.trace_id}
                             onClick={() => setExpandedTurn(isExpanded ? null : turn.trace_id)}
                             style={{ borderBottom: `1px solid ${C.border}`, cursor: 'pointer', transition: 'background 0.1s' }}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
@@ -349,7 +348,7 @@ export default function AdminTracesPage() {
                               </td>
                             </tr>
                           )}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
