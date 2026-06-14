@@ -5,6 +5,7 @@ import { generateStrategy } from '../strategy';
 import { model } from '../model';
 import { config } from '../config';
 import { logger } from '../logger';
+import { cache } from '../cache';
 import { Pinecone } from '@pinecone-database/pinecone';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -21,44 +22,129 @@ function getPineconeClient() {
 
 const PINECONE_INDEX = 'octaraa-kb-v2';
 
-// Basic vector search
-async function vectorSearch(tableName: string, query: string, kbFilter: string | null = null, limit = 20) {
+// ─── RAG Helpers ───────────────────────────────────────────────
+
+/**
+ * Single vector search against Pinecone with retrieval caching.
+ * Threshold raised to 0.35 for precision; topK lowered to 12.
+ */
+async function vectorSearch(
+  query: string,
+  kbFilter: string | null = null,
+  topK = 12
+): Promise<Array<{ content: string; similarity: number; rrf_score: number }>> {
+  const cacheKey = kbFilter ?? 'all';
+  const cached = cache.getRetrieval(query, cacheKey);
+  if (cached) {
+    logger.info('[RAG] Retrieval cache hit', { query: query.substring(0, 60), kbFilter });
+    return cached;
+  }
+
   const { embedding } = await model.embed(query);
   const pcClient = getPineconeClient();
   const index = pcClient.Index(PINECONE_INDEX);
 
-  if (kbFilter) {
-    const queryResponse = await index.query({
-      vector: embedding,
-      topK: limit,
-      includeMetadata: true,
-      filter: { kb: kbFilter }
-    });
+  const queryResponse = await index.query({
+    vector: embedding,
+    topK,
+    includeMetadata: true,
+    ...(kbFilter ? { filter: { kb: kbFilter } } : {}),
+  });
 
-    const results = queryResponse.matches.map(match => ({
-      content: match.metadata?.content as string,
-      similarity: match.score || 0,
-      fts_rank: 0,
-      rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.10);
-    
-    return results;
-  } else {
-    const queryResponse = await index.query({
-      vector: embedding,
-      topK: limit,
-      includeMetadata: true
-    });
+  const results = queryResponse.matches
+    .map(match => ({
+      content: (match.metadata?.content as string) ?? '',
+      similarity: match.score ?? 0,
+      rrf_score: match.score ?? 0,
+    }))
+    .filter(r => r.similarity > 0.35 && r.content.length > 0);
 
-    const results = queryResponse.matches.map(match => ({
-      content: match.metadata?.content as string,
-      similarity: match.score || 0,
-      fts_rank: 0,
-      rrf_score: match.score || 0
-    })).filter(r => r.similarity > 0.10);
-    
-    return results;
+  cache.setRetrieval(query, cacheKey, results);
+  return results;
+}
+
+/**
+ * Generate lightweight query variants via string manipulation (no LLM call,
+ * zero latency overhead). Strips question-word prefixes to create a keyword
+ * query that often retrieves complementary chunks.
+ */
+function generateQueryVariants(query: string): string[] {
+  const q = query.trim();
+  const variants: string[] = [q];
+
+  // Strip leading question words → keyword variant
+  const keyword = q
+    .replace(/^(what|how|why|when|where|who|which|is|are|does|do|can|will|tell me about|explain|describe)\s+(is|are|does|do|a|an|the)?\s*/i, '')
+    .replace(/[?]$/g, '')
+    .trim();
+
+  if (keyword && keyword !== q && keyword.length > 4 && keyword.length < 150) {
+    variants.push(keyword);
   }
+
+  return variants;
+}
+
+/**
+ * Multi-query retrieval with Reciprocal Rank Fusion (RRF).
+ * Runs original query + a keyword variant in parallel, then merges
+ * by RRF score (k=60). Returns top 6 deduplicated, highest-scoring chunks.
+ */
+async function multiQuerySearch(
+  query: string,
+  kbFilter: string | null = null
+): Promise<Array<{ content: string; rrf_score: number }>> {
+  const queries = generateQueryVariants(query);
+
+  // Run all query variants in parallel
+  const allResults = await Promise.all(
+    queries.map(q => vectorSearch(q, kbFilter).catch(() => [] as Array<{ content: string; similarity: number; rrf_score: number }>))
+  );
+
+  // RRF merge: score += 1 / (k + rank) for each query list
+  const k = 60;
+  const scoreMap = new Map<string, { content: string; rrf_score: number }>();
+
+  allResults.forEach(results => {
+    results.forEach((result, rank) => {
+      // Deduplication key: first 80 chars (catches near-duplicate chunks)
+      const key = result.content.substring(0, 80);
+      const rrfAdd = 1 / (k + rank + 1);
+      const existing = scoreMap.get(key);
+      if (existing) {
+        existing.rrf_score += rrfAdd;
+      } else {
+        scoreMap.set(key, { content: result.content, rrf_score: rrfAdd });
+      }
+    });
+  });
+
+  return Array.from(scoreMap.values())
+    .sort((a, b) => b.rrf_score - a.rrf_score)
+    .slice(0, 6);
+}
+
+/**
+ * Format retrieved chunks as numbered facts for the LLM context.
+ * Caps total characters at maxChars to keep context sharp and focused.
+ */
+function buildContext(results: Array<{ content: string }>, maxChars = 2500): string {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  let total = 0;
+
+  for (let i = 0; i < results.length; i++) {
+    const content = results[i].content?.trim();
+    if (!content) continue;
+    const key = content.substring(0, 80);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (total + content.length > maxChars) break;
+    lines.push(`[${lines.length + 1}] ${content}`);
+    total += content.length;
+  }
+
+  return lines.join('\n\n');
 }
 
 export function getTools(context: { sessionId: string; profileId: string; userId: string; profileName: string; profileRelation: string }) {
@@ -154,21 +240,20 @@ ${historyText}`;
           return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
         }
 
-        const results = await vectorSearch('knowledge_chunks', query, 'octaraa');
+        const results = await multiQuerySearch(query, 'octaraa');
         if (results.length === 0) {
           if (/amc|asset management/i.test(query)) {
             if (userEmail) {
               await performLeadCapture(context.profileName !== 'Self' ? context.profileName : undefined, userEmail, `User queried details/AUM for: ${query}`);
               return `I could not find the specific details or AUM for "${query}" in our knowledge base. However, since you are logged in, I have automatically registered this as a callback request for you!\n\nAn Octaraa wealth expert has been notified and will reach out to you at your registered email: ${userEmail}.\n\nFor your reference, here are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nIs there another financial topic or goal you'd like help with?`;
             }
-            return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
+            return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further.\n\nTop 5 AMCs in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details so a representative can call you back?`;
           }
           return "I am sorry, but I do not have that specific information about Octaraa based on the website.";
         }
-        
-        const facts = results.map((r: any) => r.content).join('\n\n');
-        const systemPrompt = `You are the Octaraa Expert Agent. Answer the user's query strictly using these facts:\n\n${facts}\n\nDo not invent anything. If the facts don't contain the answer:\n- If the query is about an AMC (Asset Management Company) or unknown mutual fund house, state that an Octaraa representative or wealth expert can assist them further, list the top 5 AMCs in India (SBI, ICICI Prudential, HDFC, Nippon India, Kotak Mahindra), and politely ask if they would like to leave their contact details (phone number) so a representative can call them back.\n- Otherwise, say 'I could not find this information in the Octaraa knowledge base.'\n\nCRITICAL: To keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation or ask about their financial goals. Use markdown formatting.`;
-        return await model.agentCall(systemPrompt, query);
+
+        const context_block = buildContext(results);
+        return `FACTS FROM OCTARAA KNOWLEDGE BASE:\n\n${context_block}\n\nINSTRUCTION: Answer strictly using the numbered facts above. Do not invent or extrapolate. If the facts don't contain the answer, say so. End with a relevant follow-up question.`;
       },
     },
 
@@ -194,11 +279,12 @@ ${historyText}`;
           return `I could not find the specific details or AUM for "${query}" in our knowledge base. An Octaraa wealth expert can assist you further with this request.\n\nHere are the top 5 Asset Management Companies (AMCs) in India by AUM:\n1. SBI Mutual Fund\n2. ICICI Prudential Mutual Fund\n3. HDFC Mutual Fund\n4. Nippon India Mutual Fund\n5. Kotak Mahindra Mutual Fund\n\nWould you like to leave your contact details (phone number) so our wealth expert can call you back and help you with your query?`;
         }
 
-        const results = await vectorSearch('knowledge_chunks', query, null);
-        const facts = results.length > 0 ? results.map((r: any) => r.content).join('\n\n') : 'No specific facts found in DB.';
-        
-        const systemPrompt = `You are the Finance Expert Agent. Answer the user's query using these facts (if provided):\n\n${facts}\n\nIf the facts don't contain the answer, use your general knowledge. Follow SEBI rules: NEVER promise guaranteed returns. Do NOT recommend specific stocks or schemes. Provide educational value in markdown.\n\nCRITICAL: If the query is about an unknown AMC (Asset Management Company) or mutual fund house and the provided facts do not contain the answer, state that an Octaraa representative or wealth expert can assist them further, list the top 5 AMCs in India (1. SBI Mutual Fund, 2. ICICI Prudential Mutual Fund, 3. HDFC Mutual Fund, 4. Nippon India Mutual Fund, 5. Kotak Mahindra Mutual Fund), and politely ask if they would like to leave their contact details (phone number) so a representative can call them back.\n\nTo keep the user engaged, ALWAYS end your response with a friendly, relevant follow-up question to encourage further conversation. For example, you can ask if they want to calculate their SIP returns or set a new financial goal.`;
-        return await model.agentCall(systemPrompt, query);
+        const results = await vectorSearch(query, null);
+        const context_block = results.length > 0
+          ? buildContext(results)
+          : 'No specific facts found in knowledge base.';
+
+        return `FACTS FROM FINANCE EDUCATION KB:\n\n${context_block}\n\nINSTRUCTION: Answer using the numbered facts above. If facts don't cover it, use general financial knowledge. Follow SEBI rules: never promise guaranteed returns, never recommend specific stocks or schemes. Use markdown. End with a relevant follow-up question.`;
       },
     },
 
@@ -503,7 +589,7 @@ ${historyText}`;
           const drawText = (text: string, font: any, size: number, indent: number = 50) => {
             const words = text.split(' ');
             let line = '';
-            for (let word of words) {
+            for (const word of words) {
               if ((line + word).length > 80) { // basic wrapping
                 checkPage(size + 10);
                 currentPage.drawText(line, { x: indent, y: yPos, size, font, color: rgb(0, 0, 0) });

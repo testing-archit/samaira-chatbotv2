@@ -105,6 +105,7 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRating(initialRating || 0);
   }, [initialRating, initialText]);
 
@@ -350,7 +351,7 @@ function MessageFeedback({ messageId, initialRating, initialText }: { messageId:
 // ─── Generative UI Chart Component ───
 const formatCurrency = (val: number) => {
   if (!val || isNaN(val)) return '₹0';
-  let formatted = `₹${val.toLocaleString('en-IN')}`;
+  const formatted = `₹${val.toLocaleString('en-IN')}`;
   let word = '';
   if (val >= 10000000) {
     word = ` (${(val / 10000000).toFixed(2).replace(/\.00$/, '')} Cr)`;
@@ -366,6 +367,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
   const [activeCalc, setActiveCalc] = useState(initialType);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveCalc(parsedArgs?.type || 'sip');
   }, [parsedArgs?.type]);
 
@@ -381,6 +383,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
     final_amount: parsedArgs?.final_amount || 2000000,
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     // Set appropriate defaults when switching calculator types from the menu
     if (activeCalc === 'income_tax') {
@@ -434,6 +437,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
       }));
     }
   }, [activeCalc]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (!parsedArgs || !parsedArgs.type) return null;
 
@@ -887,7 +891,7 @@ function CalculatorChart({ args, append }: { args: any, append?: any }) {
               <XAxis dataKey="year" stroke="#888" fontSize={12} tickFormatter={(val) => `Yr ${val}`} />
               <YAxis stroke="#888" fontSize={12} tickFormatter={(val) => `₹${(val/100000).toFixed(1)}L`} />
               <Tooltip 
-                formatter={(value: number) => `₹${value.toLocaleString('en-IN')}`}
+                formatter={(value: any) => typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : String(value ?? '')}
                 labelFormatter={(label) => `Year ${label}`}
                 contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '4px' }}
               />
@@ -1440,7 +1444,7 @@ function ChatInstance({ profile, user, isActive, onMenuClick }: { profile: any, 
                         append({
                           id: 'msg_' + Math.random().toString(36).substring(2, 9),
                           role: 'user',
-                          content: s.prompt,
+                          content: s.prompt ?? '',
                           toolInvocations: [],
                         });
                       }

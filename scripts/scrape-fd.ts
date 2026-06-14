@@ -76,12 +76,12 @@ async function run() {
     const inputs = await page.$$('input[type="tel"], input[type="number"], input[autocomplete="one-time-code"]');
     if (inputs.length >= 4 && inputs.length <= 6) {
         for (let i = 0; i < inputs.length; i++) {
-            if (otpStr[i]) {
-                await inputs[i].type(otpStr[i], { delay: 100 });
+            if (otp[i]) {
+                await inputs[i].type(otp[i], { delay: 100 });
             }
         }
     } else if (inputs.length > 0) {
-        await inputs[0].type(otpStr, { delay: 100 });
+        await inputs[0].type(otp, { delay: 100 });
     }
 
     await page.evaluate(() => {

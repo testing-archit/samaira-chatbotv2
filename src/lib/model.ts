@@ -78,7 +78,8 @@ export const model = {
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userQuery }
           ],
-          temperature: 0.1,
+          temperature: 0.05,
+          max_tokens: 800,
         }),
       });
 

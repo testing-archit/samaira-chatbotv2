@@ -70,6 +70,8 @@ const tools = [
           monthly_surplus: { type: 'number', description: 'Monthly surplus after all expenses in INR' },
           liabilities: { type: 'number', description: 'Total outstanding liabilities/loans in INR' },
           emergency_fund_months: { type: 'number', description: 'How many months of expenses are in emergency fund' },
+          emergency_fund_amount: { type: 'number', description: 'Absolute amount of emergency fund in INR' },
+          current_investments: { type: 'number', description: 'Total amount of existing investments in INR' },
           has_term_insurance: { type: 'boolean', description: 'Whether the user has term life insurance' },
           term_cover: { type: 'number', description: 'Term insurance cover amount in INR' },
           has_health_insurance: { type: 'boolean', description: 'Whether the user has family health insurance' },
@@ -206,7 +208,8 @@ async function callGemini(messages: any[], stream: boolean) {
       tools,
       tool_choice: 'auto',
       stream,
-      temperature: 0.1,
+      temperature: 0.05,
+      max_tokens: 1500,
     }),
   });
 
@@ -255,13 +258,7 @@ export async function POST(req: Request) {
       ON CONFLICT (id) DO NOTHING
     `;
 
-    // Insert the user's message into DB
-    const userMessageId = latestMessage.id || ('msg_' + Math.random().toString(36).substring(2, 9));
-    await sql`
-      INSERT INTO messages (id, session_id, role, content)
-      VALUES (${userMessageId}, ${session_id}, 'user', ${latestMessage.content})
-      ON CONFLICT (id) DO NOTHING
-    `;
+    // Apply input guardrails BEFORE persisting to DB (blocked messages must never be saved)
     if (latestMessage?.role === 'user') {
       try {
         latestMessage.content = guardrails.filterInput(latestMessage.content);
@@ -269,6 +266,14 @@ export async function POST(req: Request) {
         return new Response(err.message, { status: 400 });
       }
     }
+
+    // Insert the sanitized user message into DB
+    const userMessageId = latestMessage.id || ('msg_' + Math.random().toString(36).substring(2, 9));
+    await sql`
+      INSERT INTO messages (id, session_id, role, content)
+      VALUES (${userMessageId}, ${session_id}, 'user', ${latestMessage.content})
+      ON CONFLICT (id) DO NOTHING
+    `;
 
     // Intercept with curated answers to avoid latency, rate limits and guarantee precision
     const curated = getCuratedAnswer(latestMessage.content);
@@ -452,6 +457,42 @@ export async function POST(req: Request) {
               } catch (err: any) {
                 logger.error('Failed to save AI message to DB', { error: err.message });
               }
+            }
+          }
+
+          if (keepGenerating && stepCount >= MAX_STEPS) {
+            // We hit the step limit but never sent a final text response.
+            // Send a fallback response so the UI doesn't hang in a 'Failed' state.
+            const fallbackText = "I have processed your request, but the operation was too complex to complete. Please try asking a more specific question.";
+            const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
+            sendEvent('message_id', aiMessageId);
+            
+            const words = fallbackText.split(' ');
+            for (let i = 0; i < words.length; i++) {
+              sendEvent('text', (i === 0 ? '' : ' ') + words[i]);
+              await new Promise(r => setTimeout(r, 8));
+            }
+            
+            // Insert Assistant Message into DB
+            const allToolCalls = openaiMessages
+              .filter((m: any) => m.role === 'assistant' && m.tool_calls)
+              .flatMap((m: any) => m.tool_calls.map((tc: any) => {
+                try {
+                  return {
+                    toolCallId: tc.id,
+                    toolName: tc.function.name,
+                    args: JSON.parse(tc.function.arguments || '{}')
+                  };
+                } catch(e) { return null; }
+              })).filter(Boolean);
+
+            try {
+              await sql`
+                INSERT INTO messages (id, session_id, role, content, tool_calls, requires_disclaimer)
+                VALUES (${aiMessageId}, ${session_id}, 'assistant', ${fallbackText}, ${JSON.stringify(allToolCalls)}, false)
+              `;
+            } catch (err: any) {
+              logger.error('Failed to save fallback AI message to DB', { error: err.message });
             }
           }
 

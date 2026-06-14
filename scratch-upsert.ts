@@ -19,7 +19,7 @@ async function run() {
       kb: 'octaraa'
     }
   }];
-  await index.upsert(vectors);
+  await index.upsert({ records: vectors });
   console.log("Done!");
 }
 

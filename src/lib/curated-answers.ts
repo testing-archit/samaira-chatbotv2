@@ -1,7 +1,30 @@
 import { logger } from './logger';
 
 export function getCuratedAnswer(query: string): string | null {
-  const q = query.toLowerCase().trim().replace(/[?.,\/#!$%\^&\*;:{}=\-_`~()]/g, "").replace(/\s+/g, " ");
+  const q = query
+    .toLowerCase()
+    .trim()
+    // Expand common contractions before stripping punctuation
+    .replace(/what's/g, 'what is')
+    .replace(/how's/g, 'how is')
+    .replace(/where's/g, 'where is')
+    .replace(/who's/g, 'who is')
+    .replace(/it's/g, 'it is')
+    .replace(/i'm/g, 'i am')
+    .replace(/i've/g, 'i have')
+    .replace(/i'd/g, 'i would')
+    .replace(/don't/g, 'do not')
+    .replace(/doesn't/g, 'does not')
+    .replace(/can't/g, 'cannot')
+    .replace(/won't/g, 'will not')
+    .replace(/isn't/g, 'is not')
+    .replace(/aren't/g, 'are not')
+    .replace(/there's/g, 'there is')
+    .replace(/that's/g, 'that is')
+    // Strip punctuation
+    .replace(/[?.,\/#!$%\^&\*;:{}=\-_`~()'"]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   // Q1: What is Octaraa
   if (q === "what is octaraa" || q === "what is octaraa and how does it help families") {
