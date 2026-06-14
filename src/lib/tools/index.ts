@@ -545,6 +545,72 @@ ${historyText}`;
       },
     },
 
+    // ─── calculate_goals_batch — Batch SIP calculator (1 step for N goals) ──────
+    // Replaces N sequential financial_calculator calls for multi-goal profiles.
+    // Accepts an array of goals; returns each SIP in a single round-trip.
+    // This keeps step usage to 1 regardless of goal count.
+    calculate_goals_batch: {
+      description: 'PREFERRED for multi-goal planning. Calculates required monthly SIP for multiple goals in a single call. Use this instead of calling financial_calculator separately for each goal when handling 2+ goals simultaneously. Returns an array of SIPs ready for reconcile_plan.',
+      parameters: z.object({
+        goals: z.array(z.object({
+          label: z.string().describe('Human-readable goal name, e.g. "Child Education", "House", "Retirement"'),
+          target_amount: z.number().describe('Target corpus in INR'),
+          horizon_years: z.number().describe('Time horizon in years'),
+          annual_rate: z.number().optional().describe('Expected annual return rate % (default: 12 for equity-linked goals, 7 for conservative)'),
+        })).describe('Array of goals to compute SIPs for in a single batch'),
+        emergency_fund: z.object({
+          monthly_expenses: z.number(),
+          current_fund: z.number().describe('Current emergency fund already available'),
+          target_months: z.number().optional().describe('Months of expenses to cover (default 6)'),
+        }).optional().describe('Optional emergency fund config — computes one-time top-up gap'),
+      }),
+      execute: async ({ goals, emergency_fund }: {
+        goals: Array<{ label: string; target_amount: number; horizon_years: number; annual_rate?: number }>;
+        emergency_fund?: { monthly_expenses: number; current_fund: number; target_months?: number };
+      }) => {
+        logger.info('Tool call: calculate_goals_batch', { goal_count: goals.length });
+
+        const results: Array<{ label: string; required_monthly_sip: number; target_amount: number; horizon_years: number; annual_rate: number }> = [];
+
+        for (const goal of goals) {
+          const rate = goal.annual_rate ?? 12;
+          const r = (rate / 100) / 12;
+          const n = goal.horizon_years * 12;
+          const requiredSip = r > 0 && n > 0
+            ? goal.target_amount / (((Math.pow(1 + r, n) - 1) / r) * (1 + r))
+            : 0;
+          results.push({
+            label: goal.label,
+            required_monthly_sip: Math.round(requiredSip),
+            target_amount: goal.target_amount,
+            horizon_years: goal.horizon_years,
+            annual_rate: rate,
+          });
+        }
+
+        let efGap = 0;
+        let efNote = '✅ Emergency fund: No top-up required.';
+        if (emergency_fund) {
+          const targetMonths = emergency_fund.target_months ?? 6;
+          const targetFund = emergency_fund.monthly_expenses * targetMonths;
+          efGap = Math.max(0, targetFund - emergency_fund.current_fund);
+          efNote = efGap > 0
+            ? `💡 EMERGENCY FUND (one-time, NOT monthly): ₹${Math.round(efGap).toLocaleString('en-IN')} one-time top-up needed.`
+            : '✅ Emergency fund is fully funded — no top-up required.';
+        }
+
+        const lines = results.map(r =>
+          `  - ${r.label}: ₹${r.required_monthly_sip.toLocaleString('en-IN')}/mo (target ₹${Math.round(r.target_amount).toLocaleString('en-IN')} in ${r.horizon_years}y @ ${r.annual_rate}%)`
+        ).join('\n');
+
+        return JSON.stringify({
+          results,
+          emergency_fund_gap_oneoff: efGap,
+          summary: `BATCH CALCULATION COMPLETE:\n${lines}\n${efNote}\n\nINSTRUCTION: Pass these SIPs to reconcile_plan with monthly_surplus and emergency_fund_gap_oneoff=${efGap}.`,
+        });
+      },
+    },
+
     // ─── reconcile_plan — P0 Mandatory Feasibility Gate ────────────────────────
     // Deterministic tool: sums per-goal SIPs against monthly surplus.
     // MUST be called before writing any multi-goal financial plan response.

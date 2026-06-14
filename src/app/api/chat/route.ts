@@ -128,6 +128,43 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'calculate_goals_batch',
+      description: 'PREFERRED for multi-goal planning. Calculates required monthly SIP for 2+ goals in a single call — use this instead of calling financial_calculator separately for each goal. Also computes the emergency fund one-time top-up if provided. Returns an array of SIPs ready to pass directly into reconcile_plan.',
+      parameters: {
+        type: 'object',
+        properties: {
+          goals: {
+            type: 'array',
+            description: 'Array of financial goals to compute SIPs for',
+            items: {
+              type: 'object',
+              properties: {
+                label: { type: 'string', description: 'Human-readable goal name e.g. "Child Education", "House", "Retirement"' },
+                target_amount: { type: 'number', description: 'Target corpus in INR' },
+                horizon_years: { type: 'number', description: 'Time horizon in years' },
+                annual_rate: { type: 'number', description: 'Expected annual return % (default 12 for equity, 7 for conservative)' },
+              },
+              required: ['label', 'target_amount', 'horizon_years'],
+            },
+          },
+          emergency_fund: {
+            type: 'object',
+            description: 'Optional: compute the one-time emergency fund top-up alongside SIPs',
+            properties: {
+              monthly_expenses: { type: 'number' },
+              current_fund: { type: 'number', description: 'Current emergency fund available in INR' },
+              target_months: { type: 'number', description: 'Months to cover (default 6)' },
+            },
+            required: ['monthly_expenses', 'current_fund'],
+          },
+        },
+        required: ['goals'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'reconcile_plan',
       description: 'MANDATORY after computing SIPs for multiple goals. Sums all goal SIPs against monthly surplus, checks feasibility, and reallocates proportionally if over-budget. Also surfaces the emergency fund gap as a one-time top-up (NOT monthly). Call this before writing any multi-goal financial plan response.',
       parameters: {
@@ -208,10 +245,10 @@ ROUTING RULES (MANDATORY):
 
 MULTI-GOAL PLANNING WORKFLOW (MANDATORY — P0):
 - When the user asks for a plan covering multiple financial goals (e.g. House + Retirement + Vacation + Emergency Fund):
-  1. Call 'financial_calculator' (type='emergency_fund') FIRST to compute the emergency fund as a ONE-TIME top-up gap, NOT a monthly SIP. Pass: principal=monthly_expenses, rate=current_emergency_fund_amount (from profile, or 0 if unknown), years=target_months (default 6).
-  2. Call 'financial_calculator' (type='target_sip' or 'sip') for each remaining goal separately.
-  3. After ALL calculator calls are complete, you MUST call 'reconcile_plan' with the user's monthly_surplus and the array of goal SIPs. Pass the emergency_fund_gap_oneoff value from step 1.
-  4. Only AFTER 'reconcile_plan' returns, write your final answer using the RECONCILED numbers (not the raw calculator outputs). Never write a multi-goal table without calling reconcile_plan first.
+  1. ALWAYS call 'calculate_goals_batch' (NOT individual financial_calculator calls) for multi-goal profiles (2+ goals). Pass ALL non-emergency goals in one 'goals' array, and include the 'emergency_fund' object if the user has one. This runs all SIP math in a single step.
+  2. After 'calculate_goals_batch' returns, immediately call 'reconcile_plan' with the user's monthly_surplus, the goal_sips array from the batch result, and emergency_fund_gap_oneoff from the batch result.
+  3. Only AFTER 'reconcile_plan' returns, write your final answer using the RECONCILED numbers (not the raw outputs). Never write a multi-goal table without calling reconcile_plan first.
+  NOTE: For a single goal, you may still use financial_calculator directly.
 
 SUPERVISOR RULES:
 - IMPORTANT: When you call a tool, that tool returns a FULLY WRITTEN AND SYNTHESIZED RESPONSE.
@@ -403,12 +440,19 @@ export async function POST(req: Request) {
         try {
           let keepGenerating = true;
           let stepCount = 0;
-          // P1 FIX: Raised from 6 → 8 to accommodate 4×financial_calculator +
-          // 1×reconcile_plan + 1×final_text without hitting the cap prematurely.
-          const MAX_STEPS = 8;
+          // Dynamic step budget: scan the injected context for how many goals are present.
+          // Formula: base 10 + 1 extra step per goal beyond 3 (covers batch+reconcile+final
+          // even for 8-goal profiles). Falls back to 10 for normal flows.
+          const contextStr = openaiMessages.map((m: any) => m.content ?? '').join(' ');
+          const goalMatches = contextStr.match(/horizon_years|target_amount|horizon.*year/gi);
+          const goalCount = goalMatches ? Math.min(goalMatches.length, 10) : 0;
+          const MAX_STEPS = Math.max(10, 4 + Math.max(0, goalCount - 3));
+
           const sentToolIds = new Set<string>(); // guard: never emit the same toolCallId twice
           // Track tool names called THIS turn for the reconciliation circuit-breaker
           const thisRoundToolNames: string[] = [];
+          // Track reconcile_plan result so we can use it in the smart fallback
+          let reconcilePlanResult: string | null = null;
 
           // ── Observability: per-turn accumulators ─────────────────────────
           let totalPromptTokens = 0;
@@ -488,6 +532,10 @@ export async function POST(req: Request) {
                     const toolLatencyMs = Date.now() - toolStartMs;
                     toolCallLog.push({ step: stepCount, tool: toolName, latency_ms: toolLatencyMs });
                     tracer.toolCall({ traceId, step: stepCount, tool: toolName, latency_ms: toolLatencyMs });
+                    // Capture reconcile_plan output so the smart fallback can use it
+                    if (toolName === 'reconcile_plan') {
+                      reconcilePlanResult = toolResult;
+                    }
                   } catch (err: any) {
                     const toolLatencyMs = Date.now() - toolStartMs;
                     tracer.toolError({ traceId, step: stepCount, tool: toolName, latency_ms: toolLatencyMs, error: err.message });
@@ -580,9 +628,24 @@ export async function POST(req: Request) {
           }
 
           if (keepGenerating && stepCount >= MAX_STEPS) {
-            // We hit the step limit but never sent a final text response.
-            // Send a human-friendly fallback so the UI doesn't hang in a 'Failed' state.
-            const fallbackText = "I'm having a bit of trouble completing this full calculation in one go — it involved more steps than I could process together. Let me connect you with an Octaraa wealth expert who can work through all the details with you personally. Would you like me to arrange a callback?";
+            // Smart fallback: if reconcile_plan already ran this turn, use its output
+            // as a deterministic template instead of the generic "I'm having trouble" message.
+            // This ensures users with 5+ goals still get their reconciled plan even if the
+            // final synthesis step ran out of budget.
+            let fallbackText: string;
+            if (reconcilePlanResult) {
+              fallbackText = [
+                "Here's your reconciled financial plan based on the calculations I just completed:\n",
+                reconcilePlanResult
+                  .replace('RECONCILIATION RESULT:', '')
+                  .replace('INSTRUCTION: Use the reconciled numbers above (not the raw financial_calculator outputs) in your final answer to the user.', '')
+                  .trim(),
+                '\n\n> ⚠️ *Investments carry market risk. Please read all scheme-related documents carefully before investing.*',
+                '\n\nWould you like me to export this plan as a PDF, or help you set up any of these SIPs?',
+              ].join('');
+            } else {
+              fallbackText = "I'm having a bit of trouble completing this full calculation in one go — it involved more steps than I could process together. Let me connect you with an Octaraa wealth expert who can work through all the details with you personally. Would you like me to arrange a callback?";
+            }
             const aiMessageId = 'msg_' + Math.random().toString(36).substring(2, 9);
             sendEvent('message_id', aiMessageId);
             
